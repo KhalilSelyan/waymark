@@ -1,0 +1,3 @@
+{
+  "extends": "@waymark/config/tsconfig.base.json"
+}

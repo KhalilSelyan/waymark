@@ -1,0 +1,24 @@
+{
+  "name": "@waymark/auth",
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "default": "./src/*.ts"
+    }
+  },
+  "scripts": {},
+  "dependencies": {
+    "@waymark/db": "workspace:*",
+    "@waymark/env": "workspace:*",
+    "better-auth": "catalog:",
+    "dotenv": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@waymark/config": "workspace:*",
+    "typescript": "catalog:"
+  }
+}
