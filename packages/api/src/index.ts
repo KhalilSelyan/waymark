@@ -11,9 +11,7 @@ const requireAuth = o.middleware(async ({ context, next }) => {
     throw new ORPCError("UNAUTHORIZED");
   }
   return next({
-    context: {
-      session: context.session,
-    },
+      context,
   });
 });
 

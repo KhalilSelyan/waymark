@@ -6,13 +6,13 @@
 
 	const sessionQuery = authClient.useSession();
 
-	const privateDataQuery = createQuery(() => orpc.privateData.queryOptions());
+  const privateDataQuery = createQuery(() => orpc.privateData.queryOptions());
 
-	$effect(() => {
-		if (!$sessionQuery.isPending && !$sessionQuery.data) {
-			goto('/login');
-		}
-	});
+  $effect(() => {
+    if (!$sessionQuery.isPending && !$sessionQuery.data) {
+      goto('/login');
+    }
+  });
 
 </script>
 

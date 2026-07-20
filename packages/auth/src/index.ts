@@ -14,8 +14,11 @@ export function createAuth() {
       schema: schema,
     }),
     trustedOrigins: [env.CORS_ORIGIN],
-    emailAndPassword: {
-      enabled: true,
+    socialProviders: {
+      google: {
+        clientId: env.GOOGLE_CLIENT_ID,
+        clientSecret: env.GOOGLE_CLIENT_SECRET,
+      },
     },
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL,
