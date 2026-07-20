@@ -7,6 +7,15 @@ import { svelteKitHandler } from "better-auth/svelte-kit";
 export const handle: Handle = async ({ event, resolve }) => {
   const authInstance = auth;
 
+  const session = await authInstance.api.getSession({
+    headers: event.request.headers,
+  });
+
+  if (session) {
+    event.locals.session = session.session;
+    event.locals.user = session.user;
+  }
+
   return svelteKitHandler({
     event,
     resolve,
