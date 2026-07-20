@@ -126,9 +126,23 @@ pnpm install
 
 ### Configure the database
 
-Create or update the environment file used by the web application with a PostgreSQL connection string. The exact environment variables may change while the product foundation is being implemented.
+Copy the environment template used by the web application:
 
-Then apply the current schema:
+```bash
+cp apps/web/.env.example apps/web/.env
+```
+
+The template contains the local PostgreSQL connection and the development authentication URLs. Replace `BETTER_AUTH_SECRET` with a private random value of at least 32 characters.
+
+The local database configuration is defined in [`packages/db/docker-compose.yml`](packages/db/docker-compose.yml). It uses host port `5433` by default so it does not conflict with a PostgreSQL service already using the standard `5432` port. Set `WAYMARK_POSTGRES_PORT` in `apps/web/.env` if you need another host port.
+
+Start PostgreSQL:
+
+```bash
+pnpm run db:start
+```
+
+Apply the current schema:
 
 ```bash
 pnpm run db:push
@@ -161,8 +175,9 @@ pnpm run db:push       # Push schema changes to PostgreSQL
 pnpm run db:generate   # Generate database migrations
 pnpm run db:migrate    # Run database migrations
 pnpm run db:studio     # Open Drizzle Studio
-pnpm run db:start      # Start the local database service, if configured
-pnpm run db:stop       # Stop the local database service, if configured
+pnpm run db:start      # Start local PostgreSQL
+pnpm run db:stop       # Stop local PostgreSQL
+pnpm run db:down       # Stop PostgreSQL and remove the container
 ```
 
 ## Development Principles
@@ -190,7 +205,7 @@ The initial implementation sequence is:
 
 ## Status
 
-Waymark is currently at the scaffold stage. Product and architecture decisions are being shaped before the first feature milestone is implemented.
+Waymark is currently at the scaffold stage. Product and architecture decisions are being shaped before the first feature milestone is implemented. The local PostgreSQL and environment setup are now documented and ready for feature work.
 
 ## License
 
