@@ -26,6 +26,8 @@ The product goal is simple:
 
 > Plan the trip together. Track the money automatically.
 
+The agreed domain rules are documented in [`docs/domain-model.md`](docs/domain-model.md). That document defines ownership, guest identity, invite lifecycle, shared editing, expense calculations, settlement state, activity history, and persistent versus realtime state.
+
 ## MVP Scope
 
 ### Trip Workspace
@@ -103,6 +105,8 @@ waymark/
 │   ├── db/          # Database schema and queries
 │   ├── env/         # Environment validation
 │   └── config/      # Shared tooling configuration
+├── docs/
+│   └── domain-model.md # Product entities and MVP invariants
 └── README.md
 ```
 
