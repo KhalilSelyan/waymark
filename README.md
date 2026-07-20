@@ -207,6 +207,8 @@ The initial implementation sequence is:
 
 Waymark is currently at the scaffold stage. Product and architecture decisions are being shaped before the first feature milestone is implemented. The local PostgreSQL and environment setup are now documented and ready for feature work.
 
+The web app uses shadcn-svelte locally under `apps/web/src/lib/components/ui/`. The current setup uses the Zinc base theme; add components from the repository root with commands such as `pnpm --filter web exec shadcn-svelte add button`.
+
 ## License
 
 License details will be added once the project's distribution model is decided.
