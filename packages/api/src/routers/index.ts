@@ -1,7 +1,7 @@
 import type { RouterClient } from "@orpc/server";
 import { z } from "zod";
 import { and, desc, eq, isNull } from "drizzle-orm";
-import { canvasObjects, places, trips, tripMembers } from "@waymark/db/schema";
+import { canvasObjects, itineraryItems, places, trips, tripMembers } from "@waymark/db/schema";
 import { ORPCError } from "@orpc/server";
 
 import { protectedProcedure, publicProcedure } from "../index";
@@ -104,6 +104,31 @@ export const appRouter = {
       if (!current) throw new ORPCError("NOT_FOUND");
       const [place] = await context.db.update(places).set({ deletedAt: new Date() }).where(eq(places.id, input.id)).returning();
       return place;
+    }),
+  },
+  itinerary: {
+    list: protectedProcedure.input(z.object({ tripId: z.string().uuid() })).handler(async ({ context, input }) => {
+      const [member] = await context.db.select({ id: tripMembers.id }).from(tripMembers).innerJoin(trips, eq(tripMembers.tripId, trips.id)).where(and(eq(tripMembers.tripId, input.tripId), eq(tripMembers.userId, context.session!.user.id), isNull(tripMembers.removedAt), isNull(trips.deletedAt))).limit(1);
+      if (!member) throw new ORPCError("NOT_FOUND");
+      return context.db.select({ item: itineraryItems, place: places }).from(itineraryItems).leftJoin(places, eq(itineraryItems.placeId, places.id)).where(and(eq(itineraryItems.tripId, input.tripId), isNull(itineraryItems.deletedAt))).orderBy(itineraryItems.day, itineraryItems.sortOrder, itineraryItems.createdAt);
+    }),
+    create: protectedProcedure.input(z.object({ tripId: z.string().uuid(), day: z.string().date().nullable().optional(), title: z.string().trim().min(1).max(200), placeId: z.string().uuid().nullable().optional(), startsAt: z.string().datetime({ offset: true }).nullable().optional(), endsAt: z.string().datetime({ offset: true }).nullable().optional(), notes: z.string().trim().max(5000).nullable().optional(), status: z.enum(["idea", "planned", "done"]).default("planned"), sortOrder: z.number().int().default(0) })).handler(async ({ context, input }) => {
+      const [member] = await context.db.select({ id: tripMembers.id }).from(tripMembers).innerJoin(trips, eq(tripMembers.tripId, trips.id)).where(and(eq(tripMembers.tripId, input.tripId), eq(tripMembers.userId, context.session!.user.id), isNull(tripMembers.removedAt), isNull(trips.deletedAt))).limit(1);
+      if (!member) throw new ORPCError("NOT_FOUND");
+      const [item] = await context.db.insert(itineraryItems).values({ ...input, createdByMemberId: member.id, placeId: input.placeId ?? null, startsAt: input.startsAt ? new Date(input.startsAt) : null, endsAt: input.endsAt ? new Date(input.endsAt) : null, notes: input.notes ?? null }).returning();
+      return item;
+    }),
+    update: protectedProcedure.input(z.object({ id: z.string().uuid(), day: z.string().date().nullable().optional(), title: z.string().trim().min(1).max(200), placeId: z.string().uuid().nullable().optional(), startsAt: z.string().datetime({ offset: true }).nullable().optional(), endsAt: z.string().datetime({ offset: true }).nullable().optional(), notes: z.string().trim().max(5000).nullable().optional(), status: z.enum(["idea", "planned", "done"]), sortOrder: z.number().int() })).handler(async ({ context, input }) => {
+      const [current] = await context.db.select({ item: itineraryItems }).from(itineraryItems).innerJoin(tripMembers, eq(itineraryItems.tripId, tripMembers.tripId)).where(and(eq(itineraryItems.id, input.id), eq(tripMembers.userId, context.session!.user.id), isNull(itineraryItems.deletedAt), isNull(tripMembers.removedAt))).limit(1);
+      if (!current) throw new ORPCError("NOT_FOUND");
+      const [item] = await context.db.update(itineraryItems).set({ day: input.day, title: input.title, placeId: input.placeId ?? null, startsAt: input.startsAt ? new Date(input.startsAt) : null, endsAt: input.endsAt ? new Date(input.endsAt) : null, notes: input.notes ?? null, status: input.status, sortOrder: input.sortOrder }).where(eq(itineraryItems.id, input.id)).returning();
+      return item;
+    }),
+    archive: protectedProcedure.input(z.object({ id: z.string().uuid() })).handler(async ({ context, input }) => {
+      const [current] = await context.db.select({ item: itineraryItems }).from(itineraryItems).innerJoin(tripMembers, eq(itineraryItems.tripId, tripMembers.tripId)).where(and(eq(itineraryItems.id, input.id), eq(tripMembers.userId, context.session!.user.id), isNull(itineraryItems.deletedAt), isNull(tripMembers.removedAt))).limit(1);
+      if (!current) throw new ORPCError("NOT_FOUND");
+      const [item] = await context.db.update(itineraryItems).set({ deletedAt: new Date() }).where(eq(itineraryItems.id, input.id)).returning();
+      return item;
     }),
   },
 };

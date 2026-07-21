@@ -40,6 +40,6 @@ export const actions: Actions = {
       return created;
     });
 
-    throw redirect(303, `/trips/${trip.id}/settings`);
+    throw redirect(303, `/trips/${trip.id}/canvas`);
   },
 };

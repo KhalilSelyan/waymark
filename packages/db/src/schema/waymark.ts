@@ -245,7 +245,7 @@ export const itineraryItems = pgTable(
       () => canvasObjects.id,
       { onDelete: "set null" },
     ),
-    day: date("day").notNull(),
+    day: date("day"),
     title: text("title").notNull(),
     startsAt: timestamp("starts_at", { withTimezone: true }),
     endsAt: timestamp("ends_at", { withTimezone: true }),

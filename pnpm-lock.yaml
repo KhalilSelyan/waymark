@@ -148,6 +148,9 @@ importers:
       '@tanstack/svelte-query-devtools':
         specifier: ^6.1.36
         version: 6.1.36(@tanstack/svelte-query@6.1.36(svelte@5.56.5))(svelte@5.56.5)
+      '@tanstack/table-core':
+        specifier: ^8.21.3
+        version: 8.21.3
       '@types/react':
         specifier: ^19.2.17
         version: 19.2.17
@@ -1984,6 +1987,10 @@ packages:
     resolution: {integrity: sha512-XhXlU3jIO/WxikfeVczRdsAvRWzsLBh8Ic6sC7nzfzvMbPut7ZSdCbE7/usfm0bMjVGMmZmyzZy2xRu73QYWAA==}
     peerDependencies:
       svelte: ^5.0.0
+
+  '@tanstack/table-core@8.21.3':
+    resolution: {integrity: sha512-ldZXEhOBb8Is7xLs01fR3YEc3DERiz5silj8tnGkFZytt1abEvl/GhUmCE0PMLaMPTa3Jk4HbKmRlHmu+gCftg==}
+    engines: {node: '>=12'}
 
   '@tiptap/core@3.28.0':
     resolution: {integrity: sha512-gUuD5WAYfbDxNSSJya/emh2KSzXZXLUYKW4fEnc1AQ5FE2twzh4LJ9UlKFIawigrUCAksWI5Fy1hRbv+5m4ZdQ==}
@@ -4636,6 +4643,8 @@ snapshots:
     dependencies:
       '@tanstack/store': 0.11.0
       svelte: 5.56.5
+
+  '@tanstack/table-core@8.21.3': {}
 
   '@tiptap/core@3.28.0(@tiptap/pm@3.28.0)':
     dependencies:
