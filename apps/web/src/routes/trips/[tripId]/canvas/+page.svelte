@@ -14,6 +14,7 @@
   let isFullscreen = $state(false);
   let status = $state<"loading" | "saved" | "saving" | "error">("loading");
   let error = $state<string | null>(null);
+  let promotion = $state<string | null>(null);
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
   let unsubscribe: (() => void) | undefined;
   const versions = new Map<string, number>();
@@ -86,6 +87,25 @@
     }
   }
 
+  async function promoteSelected() {
+    const shape = editor?.getSelectedShapes()[0];
+    const id = shape ? serverId(shape) : null;
+    if (!shape || !id) {
+      promotion = "Select a saved text or note first.";
+      return;
+    }
+    if (shape.type !== "text" && shape.type !== "note") {
+      promotion = "Only text and note shapes can become itinerary ideas yet.";
+      return;
+    }
+    try {
+      const result = await client.itinerary.promoteCanvasObject({ tripId, canvasObjectId: id });
+      promotion = result.created ? "Added to itinerary as an idea." : "This idea is already on the itinerary.";
+    } catch (caught) {
+      promotion = caught instanceof Error ? caught.message : "The idea could not be added to the itinerary.";
+    }
+  }
+
   function showError(caught: unknown) {
     status = "error";
     error = caught instanceof Error ? caught.message : "Canvas changes could not be saved.";
@@ -126,6 +146,7 @@
       <h1 class="text-lg font-semibold">Sketch the trip together</h1>
     </div>
     <div class="flex items-center gap-3">
+      <Button variant="outline" size="sm" onclick={promoteSelected}>Add selected to itinerary</Button>
       <p class="text-xs text-muted-foreground" aria-live="polite">
         {#if status === "loading"}Loading canvas...{:else if status === "saving"}Saving...{:else if status === "error"}Save failed{:else}All changes saved{/if}
       </p>
@@ -134,6 +155,7 @@
       </Button>
     </div>
   </div>
+  {#if promotion}<p class="border-b border-border px-4 py-2 text-xs text-muted-foreground" aria-live="polite">{promotion}</p>{/if}
   {#if error}
     <div class="border-b border-destructive/30 bg-destructive/10 px-4 py-2 text-sm text-destructive" role="alert">{error}</div>
   {/if}
