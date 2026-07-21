@@ -1,7 +1,7 @@
 import type { RouterClient } from "@orpc/server";
 import { z } from "zod";
 import { and, desc, eq, isNull } from "drizzle-orm";
-import { canvasObjects, expenseShares, expenses, itineraryItems, places, trips, tripMembers } from "@waymark/db/schema";
+import { canvasObjects, expenseShares, expenses, itineraryItems, places, settlements, trips, tripMembers } from "@waymark/db/schema";
 import { ORPCError } from "@orpc/server";
 
 import { protectedProcedure, publicProcedure } from "../index";
@@ -207,6 +207,28 @@ export const appRouter = {
       if (!removed) throw new ORPCError("NOT_FOUND");
       return removed;
     }),
+    settlements: {
+      list: protectedProcedure.input(z.object({ tripId: z.string().uuid() })).handler(async ({ context, input }) => {
+        const access = await expenseAccess(context.db, context.session!.user.id, input.tripId);
+        return context.db.select().from(settlements).where(and(eq(settlements.tripId, input.tripId), eq(settlements.currency, access.currency)));
+      }),
+      markSettled: protectedProcedure.input(z.object({ tripId: z.string().uuid(), fromMemberId: z.string().uuid(), toMemberId: z.string().uuid(), amountMinor: z.number().int().positive() })).handler(async ({ context, input }) => {
+        const access = await expenseAccess(context.db, context.session!.user.id, input.tripId, input.fromMemberId, [input.toMemberId]);
+        const [existing] = await context.db.select().from(settlements).where(and(eq(settlements.tripId, input.tripId), eq(settlements.fromMemberId, input.fromMemberId), eq(settlements.toMemberId, input.toMemberId), eq(settlements.amountMinor, input.amountMinor), eq(settlements.currency, access.currency))).limit(1);
+        if (existing) {
+          const [updated] = await context.db.update(settlements).set({ status: "settled", markedSettledAt: new Date() }).where(eq(settlements.id, existing.id)).returning();
+          return updated;
+        }
+        const [created] = await context.db.insert(settlements).values({ tripId: input.tripId, fromMemberId: input.fromMemberId, toMemberId: input.toMemberId, amountMinor: input.amountMinor, currency: access.currency, status: "settled", markedSettledAt: new Date() }).returning();
+        return created;
+      }),
+      markSuggested: protectedProcedure.input(z.object({ tripId: z.string().uuid(), settlementId: z.string().uuid() })).handler(async ({ context, input }) => {
+        await expenseAccess(context.db, context.session!.user.id, input.tripId);
+        const [updated] = await context.db.update(settlements).set({ status: "suggested", markedSettledAt: null }).where(and(eq(settlements.id, input.settlementId), eq(settlements.tripId, input.tripId))).returning();
+        if (!updated) throw new ORPCError("NOT_FOUND");
+        return updated;
+      }),
+    },
   },
 };
 export type AppRouter = typeof appRouter;
