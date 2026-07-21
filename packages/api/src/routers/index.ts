@@ -183,7 +183,7 @@ export const appRouter = {
       if (input.currency !== access.currency) throw new ORPCError("BAD_REQUEST", { message: "Expense currency must match the trip currency." });
       const shares = input.splitType === "equal" ? equalShares(input.amountMinor, input.shares.map((share) => share.memberId)) : customShares(input.amountMinor, input.shares);
       return context.db.transaction(async (tx) => {
-        const [expense] = await tx.insert(expenses).values({ tripId: input.tripId, createdByMemberId: access.memberId, payerMemberId: input.payerMemberId, description: input.description, amountMinor: input.amountMinor, currency: input.currency, occurredAt: new Date(input.occurredAt) }).returning();
+        const [expense] = await tx.insert(expenses).values({ tripId: input.tripId, createdByMemberId: access.memberId, payerMemberId: input.payerMemberId, description: input.description, amountMinor: input.amountMinor, currency: input.currency, splitType: input.splitType, occurredAt: new Date(input.occurredAt) }).returning();
         if (!expense) throw new ORPCError("INTERNAL_SERVER_ERROR");
         await tx.insert(expenseShares).values(shares.map((share) => ({ expenseId: expense.id, ...share })));
         return expense;
@@ -194,7 +194,7 @@ export const appRouter = {
       if (input.currency !== access.currency) throw new ORPCError("BAD_REQUEST", { message: "Expense currency must match the trip currency." });
       const shares = input.splitType === "equal" ? equalShares(input.amountMinor, input.shares.map((share) => share.memberId)) : customShares(input.amountMinor, input.shares);
       return context.db.transaction(async (tx) => {
-        const [expense] = await tx.update(expenses).set({ payerMemberId: input.payerMemberId, description: input.description, amountMinor: input.amountMinor, currency: input.currency, occurredAt: new Date(input.occurredAt) }).where(and(eq(expenses.id, input.id), isNull(expenses.deletedAt))).returning();
+        const [expense] = await tx.update(expenses).set({ payerMemberId: input.payerMemberId, description: input.description, amountMinor: input.amountMinor, currency: input.currency, splitType: input.splitType, occurredAt: new Date(input.occurredAt) }).where(and(eq(expenses.id, input.id), isNull(expenses.deletedAt))).returning();
         if (!expense) throw new ORPCError("NOT_FOUND");
         await tx.delete(expenseShares).where(eq(expenseShares.expenseId, input.id));
         await tx.insert(expenseShares).values(shares.map((share) => ({ expenseId: input.id, ...share })));

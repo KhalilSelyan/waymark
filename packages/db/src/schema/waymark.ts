@@ -287,6 +287,7 @@ export const expenses = pgTable(
     description: text("description").notNull(),
     amountMinor: integer("amount_minor").notNull(),
     currency: text("currency").notNull(),
+    splitType: text("split_type", { enum: ["equal", "custom"] }).notNull(),
     occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
