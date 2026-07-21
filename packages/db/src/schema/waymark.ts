@@ -106,11 +106,13 @@ export const tripMembers = pgTable(
       .default("member"),
     joinedAt: timestamp("joined_at").defaultNow().notNull(),
     lastSeenAt: timestamp("last_seen_at"),
+    removedAt: timestamp("removed_at"),
   },
   (table) => [
     index("trip_member_trip_id_idx").on(table.tripId),
     index("trip_member_user_id_idx").on(table.userId),
     index("trip_member_guest_id_idx").on(table.guestId),
+    index("trip_member_active_trip_idx").on(table.tripId, table.removedAt),
     uniqueIndex("trip_member_trip_user_idx").on(table.tripId, table.userId),
     uniqueIndex("trip_member_trip_guest_idx").on(table.tripId, table.guestId),
     check(
