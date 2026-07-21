@@ -6,6 +6,7 @@
   import { Card, CardContent, CardHeader, CardTitle } from "$lib/components/ui/card/index.js";
   import { Input } from "$lib/components/ui/input/index.js";
   import { Label } from "$lib/components/ui/label/index.js";
+  import { calculateBalances } from "@waymark/api/expenses";
 
   type ExpenseRow = Awaited<ReturnType<typeof client.expenses.list>>[number];
   type Member = Awaited<ReturnType<typeof client.members.list>>[number];
@@ -22,6 +23,17 @@
   const selectedTotal = $derived(form.participantIds.reduce((sum, id) => sum + Number(form.customAmounts[id] || 0), 0));
   const amountMinor = $derived(Math.round(Number(form.amount || 0) * 100));
   const remaining = $derived(amountMinor - Math.round(selectedTotal * 100));
+  let balances = $derived.by(() => {
+    const values = new Map<string, { paid: number; owed: number }>(members.map((member) => [member.id, { paid: 0, owed: 0 }]));
+    for (const item of expenses) {
+      const current = values.get(item.expense.payerMemberId);
+      if (current) current.paid += item.expense.amountMinor;
+      const shares = item.shares.map((share) => ({ memberId: share.memberId, amountMinor: share.amountMinor }));
+      calculateBalances(item.expense.amountMinor, item.expense.payerMemberId, shares);
+      for (const share of shares) values.get(share.memberId)!.owed += share.amountMinor;
+    }
+    return members.map((member) => ({ ...member, ...values.get(member.id), netMinor: (values.get(member.id)?.paid ?? 0) - (values.get(member.id)?.owed ?? 0) }));
+  });
 
   onMount(() => { void refresh(); });
   function money(minor: number) { return new Intl.NumberFormat(undefined, { style: "currency", currency: trip.currency }).format(minor / 100); }
@@ -38,6 +50,7 @@
 <section class="space-y-6">
   <header><p class="font-mono text-xs uppercase tracking-[0.3em] text-muted-foreground">Expenses</p><h1 class="mt-2 text-3xl font-semibold">Keep the money clear.</h1><p class="mt-2 text-muted-foreground">Record shared costs now; balances and settlement suggestions come next.</p></header>
   {#if error}<div class="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">{error}</div>{/if}
+  <Card><CardHeader><CardTitle>Balances</CardTitle></CardHeader><CardContent><div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{#each balances as balance}<div class="rounded-lg border border-border px-3 py-3"><p class="font-medium">{balance.displayName}</p><p class="mt-1 text-sm text-muted-foreground">Paid {money(balance.paid ?? 0)} · Owes {money(balance.owed ?? 0)}</p><p class={`mt-2 text-sm font-semibold ${(balance.netMinor ?? 0) > 0 ? "text-emerald-500" : (balance.netMinor ?? 0) < 0 ? "text-amber-500" : "text-muted-foreground"}`}>{(balance.netMinor ?? 0) > 0 ? `Gets back ${money(balance.netMinor ?? 0)}` : (balance.netMinor ?? 0) < 0 ? `Owes ${money(Math.abs(balance.netMinor ?? 0))}` : "Settled up"}</p></div>{/each}</div></CardContent></Card>
   <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_23rem]">
     <div class="space-y-3">{#if loading}<p class="text-sm text-muted-foreground">Loading expenses...</p>{:else if expenses.length === 0}<Card class="border-dashed"><CardContent class="py-12 text-center text-sm text-muted-foreground">No expenses recorded yet.</CardContent></Card>{:else}{#each expenses as item}<Card><CardContent class="flex items-start justify-between gap-4 py-4"><div><p class="font-medium">{item.expense.description}</p><p class="text-sm text-muted-foreground">Paid by {members.find((member) => member.id === item.expense.payerMemberId)?.displayName ?? "a member"} · {new Date(item.expense.occurredAt).toLocaleDateString()}</p><p class="mt-1 text-lg font-semibold">{money(item.expense.amountMinor)}</p><p class="text-xs text-muted-foreground">{item.shares.length} participant{item.shares.length === 1 ? "" : "s"}</p></div><div class="flex gap-1"><Button variant="ghost" size="sm" onclick={() => edit(item)}>Edit</Button><Button variant="ghost" size="sm" onclick={() => remove(item.expense.id)}>Delete</Button></div></CardContent></Card>{/each}{/if}</div>
     <Card class="h-fit"><CardHeader><CardTitle>{editingId ? "Edit expense" : "Add expense"}</CardTitle></CardHeader><CardContent><form class="space-y-4" onsubmit={(event) => { event.preventDefault(); void save(); }}>
