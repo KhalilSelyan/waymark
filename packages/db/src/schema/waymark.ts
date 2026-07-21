@@ -73,13 +73,20 @@ export const tripGuests = pgTable(
   "trip_guest",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    tripId: uuid("trip_id")
+      .notNull()
+      .references(() => trips.id, { onDelete: "cascade" }),
     username: text("username").notNull(),
     displayName: text("display_name").notNull(),
     guestTokenHash: text("guest_token_hash").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     lastSeenAt: timestamp("last_seen_at").defaultNow().notNull(),
   },
-  (table) => [uniqueIndex("trip_guest_token_hash_idx").on(table.guestTokenHash)],
+  (table) => [
+    uniqueIndex("trip_guest_token_hash_idx").on(table.guestTokenHash),
+    uniqueIndex("trip_guest_trip_username_idx").on(table.tripId, table.username),
+    index("trip_guest_trip_id_idx").on(table.tripId),
+  ],
 );
 
 export const tripMembers = pgTable(
@@ -382,8 +389,9 @@ export const tripsRelations = relations(trips, ({ one, many }) => ({
   activityEvents: many(activityEvents),
 }));
 
-export const tripGuestsRelations = relations(tripGuests, ({ many }) => ({
+export const tripGuestsRelations = relations(tripGuests, ({ many, one }) => ({
   memberships: many(tripMembers),
+  trip: one(trips, { fields: [tripGuests.tripId], references: [trips.id] }),
 }));
 
 export const tripMembersRelations = relations(tripMembers, ({ one, many }) => ({
