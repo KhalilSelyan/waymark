@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateBalances, customShares, equalShares } from "./expenses";
+import { calculateBalances, customShares, equalShares, settlementSuggestions } from "./expenses";
 
 describe("equalShares", () => {
   it("splits evenly", () => expect(equalShares(900, ["a", "b", "c"])).toEqual([{ memberId: "a", amountMinor: 300 }, { memberId: "b", amountMinor: 300 }, { memberId: "c", amountMinor: 300 }]));
@@ -16,4 +16,11 @@ describe("customShares", () => {
 describe("calculateBalances", () => {
   it("calculates payer credit and participant debts", () => expect(calculateBalances(1000, "a", [{ memberId: "a", amountMinor: 500 }, { memberId: "b", amountMinor: 500 }])).toEqual([{ memberId: "a", netMinor: 500 }, { memberId: "b", netMinor: -500 }]));
   it("includes a payer who is not a participant", () => expect(calculateBalances(300, "payer", [{ memberId: "guest", amountMinor: 300 }])).toEqual([{ memberId: "payer", netMinor: 300 }, { memberId: "guest", netMinor: -300 }]));
+});
+
+describe("settlementSuggestions", () => {
+  it("matches debtors to creditors deterministically", () => expect(settlementSuggestions([{ memberId: "a", netMinor: 700 }, { memberId: "b", netMinor: -300 }, { memberId: "c", netMinor: -400 }])).toEqual([{ fromMemberId: "b", toMemberId: "a", amountMinor: 300 }, { fromMemberId: "c", toMemberId: "a", amountMinor: 400 }]));
+  it("reduces transfers when one debtor covers multiple creditors", () => expect(settlementSuggestions([{ memberId: "a", netMinor: 300 }, { memberId: "b", netMinor: 200 }, { memberId: "c", netMinor: -500 }])).toEqual([{ fromMemberId: "c", toMemberId: "a", amountMinor: 300 }, { fromMemberId: "c", toMemberId: "b", amountMinor: 200 }]));
+  it("ignores zero balances and supports an already settled group", () => { expect(settlementSuggestions([{ memberId: "a", netMinor: 0 }])).toEqual([]); expect(settlementSuggestions([])).toEqual([]); });
+  it("rejects unbalanced input", () => expect(() => settlementSuggestions([{ memberId: "a", netMinor: 1 }])).toThrow());
 });

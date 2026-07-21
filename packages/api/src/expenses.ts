@@ -1,5 +1,6 @@
 export type Share = { memberId: string; amountMinor: number };
 export type Balance = { memberId: string; netMinor: number };
+export type SettlementSuggestion = { fromMemberId: string; toMemberId: string; amountMinor: number };
 
 function assertAmount(amountMinor: number) {
   if (!Number.isSafeInteger(amountMinor) || amountMinor < 0) throw new Error("Amount must be a non-negative integer.");
@@ -28,4 +29,26 @@ export function calculateBalances(amountMinor: number, payerMemberId: string, sh
   const balances = new Map<string, number>([[payerMemberId, amountMinor]]);
   for (const share of shares) balances.set(share.memberId, (balances.get(share.memberId) ?? 0) - share.amountMinor);
   return [...balances.entries()].map(([memberId, netMinor]) => ({ memberId, netMinor }));
+}
+
+export function settlementSuggestions(balances: Balance[]): SettlementSuggestion[] {
+  const total = balances.reduce((sum, balance) => sum + balance.netMinor, 0);
+  if (!Number.isSafeInteger(total) || total !== 0) throw new Error("Balances must sum to zero.");
+  const debtors = balances.filter((balance) => balance.netMinor < 0).map((balance) => ({ memberId: balance.memberId, amountMinor: -balance.netMinor })).sort((a, b) => a.memberId.localeCompare(b.memberId));
+  const creditors = balances.filter((balance) => balance.netMinor > 0).map((balance) => ({ memberId: balance.memberId, amountMinor: balance.netMinor })).sort((a, b) => a.memberId.localeCompare(b.memberId));
+  const suggestions: SettlementSuggestion[] = [];
+  let debtorIndex = 0;
+  let creditorIndex = 0;
+  while (debtorIndex < debtors.length && creditorIndex < creditors.length) {
+    const debtor = debtors[debtorIndex];
+    const creditor = creditors[creditorIndex];
+    if (!debtor || !creditor) break;
+    const amountMinor = Math.min(debtor.amountMinor, creditor.amountMinor);
+    suggestions.push({ fromMemberId: debtor.memberId, toMemberId: creditor.memberId, amountMinor });
+    debtor.amountMinor -= amountMinor;
+    creditor.amountMinor -= amountMinor;
+    if (debtor.amountMinor === 0) debtorIndex += 1;
+    if (creditor.amountMinor === 0) creditorIndex += 1;
+  }
+  return suggestions;
 }
