@@ -16,6 +16,7 @@
   let error = $state<string | null>(null);
   let promotion = $state<string | null>(null);
   let realtime: EventSource | undefined;
+  let onlineMembers = $state<{ memberId: string; displayName: string; color: string }[]>([]);
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
   let unsubscribe: (() => void) | undefined;
   const versions = new Map<string, number>();
@@ -115,9 +116,12 @@
     error = caught instanceof Error ? caught.message : "Canvas changes could not be saved.";
   }
 
-  type RealtimeMessage = { type: string; objects?: CanvasRecord[]; payload?: { objectId: string; objectVersion?: number; data?: Record<string, unknown> } };
+  type RealtimeMessage = { type: string; objects?: CanvasRecord[]; presence?: { memberId: string; displayName: string; color: string }[]; actorMemberId?: string; payload?: { objectId?: string; objectVersion?: number; data?: Record<string, unknown>; displayName?: string; color?: string } };
   function applyRealtime(event: RealtimeMessage) {
     if (!editor) return;
+    if (event.presence) onlineMembers = event.presence;
+    if (event.type === "presence.joined" && event.actorMemberId && event.payload?.displayName) onlineMembers = [...onlineMembers.filter((member) => member.memberId !== event.actorMemberId), { memberId: event.actorMemberId, displayName: event.payload.displayName, color: event.payload.color ?? "" }];
+    if (event.type === "presence.left" && event.actorMemberId) onlineMembers = onlineMembers.filter((member) => member.memberId !== event.actorMemberId);
     if (event.type === "snapshot" && event.objects && editor.getCurrentPageShapes().length === 0) {
       const shapes = event.objects.map((record) => { versions.set(record.id, record.version); return recordToShape(record); });
       if (shapes.length) editor.createShapes(shapes);
@@ -170,6 +174,7 @@
     <div>
       <p class="font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Shared planning board</p>
       <h1 class="text-lg font-semibold">Sketch the trip together</h1>
+      <p class="text-xs text-muted-foreground">{onlineMembers.length} online</p>
     </div>
     <div class="flex items-center gap-3">
       <Button variant="outline" size="sm" onclick={promoteSelected}>Add selected to itinerary</Button>
