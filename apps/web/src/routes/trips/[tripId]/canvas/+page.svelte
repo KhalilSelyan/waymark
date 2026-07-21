@@ -16,6 +16,9 @@
   let error = $state<string | null>(null);
   let promotion = $state<string | null>(null);
   let realtime: EventSource | undefined;
+  let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+  let reconnectAttempt = 0;
+  let realtimeStatus = $state<"connected" | "reconnecting">("reconnecting");
   let onlineMembers = $state<{ memberId: string; displayName: string; color: string }[]>([]);
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
   let unsubscribe: (() => void) | undefined;
@@ -40,9 +43,7 @@
       });
       if (shapes.length) editor.createShapes(shapes);
       unsubscribe = editor.store.listen(handleStoreChange, { source: "user", scope: "document" });
-      realtime = new EventSource(`/realtime/trips/${tripId}`);
-      realtime.onmessage = (message) => applyRealtime(JSON.parse(message.data) as RealtimeMessage);
-      realtime.onerror = () => { if (status !== "saving") error = "Realtime connection lost. Changes will still save."; };
+      connectRealtime();
       status = "saved";
     } catch (caught) {
       showError(caught);
@@ -117,14 +118,40 @@
   }
 
   type RealtimeMessage = { type: string; objects?: CanvasRecord[]; presence?: { memberId: string; displayName: string; color: string }[]; actorMemberId?: string; payload?: { objectId?: string; objectVersion?: number; data?: Record<string, unknown>; displayName?: string; color?: string } };
+  function connectRealtime() {
+    realtime?.close();
+    realtime = new EventSource(`/realtime/trips/${tripId}`);
+    realtime.onopen = () => { reconnectAttempt = 0; realtimeStatus = "connected"; error = null; };
+    realtime.onmessage = (message) => applyRealtime(JSON.parse(message.data) as RealtimeMessage);
+    realtime.onerror = () => {
+      realtimeStatus = "reconnecting";
+      realtime?.close();
+      const delay = Math.min(30_000, 1_000 * 2 ** reconnectAttempt);
+      reconnectAttempt += 1;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      reconnectTimer = setTimeout(connectRealtime, delay);
+      if (status !== "saving") error = "Realtime connection lost. Reconnecting; changes still save.";
+    };
+  }
+
   function applyRealtime(event: RealtimeMessage) {
     if (!editor) return;
     if (event.presence) onlineMembers = event.presence;
     if (event.type === "presence.joined" && event.actorMemberId && event.payload?.displayName) onlineMembers = [...onlineMembers.filter((member) => member.memberId !== event.actorMemberId), { memberId: event.actorMemberId, displayName: event.payload.displayName, color: event.payload.color ?? "" }];
     if (event.type === "presence.left" && event.actorMemberId) onlineMembers = onlineMembers.filter((member) => member.memberId !== event.actorMemberId);
-    if (event.type === "snapshot" && event.objects && editor.getCurrentPageShapes().length === 0) {
-      const shapes = event.objects.map((record) => { versions.set(record.id, record.version); return recordToShape(record); });
-      if (shapes.length) editor.createShapes(shapes);
+    if (event.type === "snapshot" && event.objects) {
+      const incoming = new Map(event.objects.map((record) => [record.id, record]));
+      for (const existing of editor.getCurrentPageShapes()) {
+        const id = serverId(existing);
+        if (id && !incoming.has(id)) editor.deleteShapes([existing.id]);
+      }
+      for (const record of event.objects) {
+        versions.set(record.id, record.version);
+        const shape = recordToShape(record);
+        const existing = editor.getCurrentPageShapes().find((candidate) => serverId(candidate) === record.id);
+        if (existing) editor.updateShape({ ...shape, id: existing.id });
+        else editor.createShapes([shape]);
+      }
       return;
     }
     if (!event.payload) return;
@@ -142,6 +169,7 @@
 
   onDestroy(() => {
     if (saveTimer) clearTimeout(saveTimer);
+    if (reconnectTimer) clearTimeout(reconnectTimer);
     unsubscribe?.();
     realtime?.close();
     document.removeEventListener("fullscreenchange", handleFullscreenChange);
@@ -180,6 +208,7 @@
       <Button variant="outline" size="sm" onclick={promoteSelected}>Add selected to itinerary</Button>
       <p class="text-xs text-muted-foreground" aria-live="polite">
         {#if status === "loading"}Loading canvas...{:else if status === "saving"}Saving...{:else if status === "error"}Save failed{:else}All changes saved{/if}
+        · {realtimeStatus === "connected" ? "Live" : "Reconnecting"}
       </p>
       <Button variant="outline" size="sm" onclick={toggleFullscreen} aria-label={isFullscreen ? "Exit fullscreen" : "Open canvas fullscreen"}>
         {isFullscreen ? "Exit fullscreen" : "Fullscreen"}
