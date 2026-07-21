@@ -1,15 +1,34 @@
 import type { RouterClient } from "@orpc/server";
 import { z } from "zod";
 import { and, desc, eq, isNull } from "drizzle-orm";
-import { canvasObjects, itineraryItems, places, trips, tripMembers } from "@waymark/db/schema";
+import { canvasObjects, expenseShares, expenses, itineraryItems, places, trips, tripMembers } from "@waymark/db/schema";
 import { ORPCError } from "@orpc/server";
 
 import { protectedProcedure, publicProcedure } from "../index";
+import { customShares, equalShares } from "../expenses";
 
 const httpUrl = z.string().url().refine((value) => {
   const url = new URL(value);
   return url.protocol === "http:" || url.protocol === "https:";
 }, "URL must use http or https");
+
+const expenseShareInput = z.object({ memberId: z.string().uuid(), amountMinor: z.number().int().nonnegative() });
+const expenseInput = z.object({ tripId: z.string().uuid(), payerMemberId: z.string().uuid(), description: z.string().trim().min(1).max(240), amountMinor: z.number().int().positive(), currency: z.string().regex(/^[A-Z]{3}$/), occurredAt: z.string().datetime({ offset: true }), splitType: z.enum(["equal", "custom"]), shares: z.array(expenseShareInput).min(1) });
+
+async function expenseAccess(database: any, userId: string, tripId: string, payerMemberId?: string, participantIds: string[] = [], expenseId?: string) {
+  const [access] = await database.select({ memberId: tripMembers.id, currency: trips.currency }).from(tripMembers).innerJoin(trips, eq(tripMembers.tripId, trips.id)).where(and(eq(tripMembers.tripId, tripId), eq(tripMembers.userId, userId), isNull(tripMembers.removedAt), isNull(trips.deletedAt))).limit(1);
+  if (!access) throw new ORPCError("NOT_FOUND");
+  const ids = [...new Set([payerMemberId, ...participantIds].filter((id): id is string => Boolean(id)))];
+  if (ids.length) {
+    const members = await database.select({ id: tripMembers.id }).from(tripMembers).where(and(eq(tripMembers.tripId, tripId), isNull(tripMembers.removedAt)));
+    if (ids.some((id) => !members.some((member: { id: string }) => member.id === id))) throw new ORPCError("BAD_REQUEST", { message: "All expense participants must belong to this trip." });
+  }
+  if (expenseId) {
+    const [expense] = await database.select({ id: expenses.id }).from(expenses).where(and(eq(expenses.id, expenseId), eq(expenses.tripId, tripId), isNull(expenses.deletedAt))).limit(1);
+    if (!expense) throw new ORPCError("NOT_FOUND");
+  }
+  return access;
+}
 
 export const appRouter = {
   healthCheck: publicProcedure.handler(() => {
@@ -144,6 +163,42 @@ export const appRouter = {
       const [item] = await context.db.insert(itineraryItems).values({ tripId: input.tripId, createdByMemberId: member.id, sourceCanvasObjectId: input.canvasObjectId, day: input.day ?? null, title, notes: typeof rawText === "string" ? rawText : null, status: "idea" }).returning({ id: itineraryItems.id });
       if (!item) throw new ORPCError("INTERNAL_SERVER_ERROR");
       return { id: item.id, created: true };
+    }),
+  },
+  expenses: {
+    list: protectedProcedure.input(z.object({ tripId: z.string().uuid() })).handler(async ({ context, input }) => {
+      const [member] = await context.db.select({ id: tripMembers.id }).from(tripMembers).innerJoin(trips, eq(tripMembers.tripId, trips.id)).where(and(eq(tripMembers.tripId, input.tripId), eq(tripMembers.userId, context.session!.user.id), isNull(tripMembers.removedAt), isNull(trips.deletedAt))).limit(1);
+      if (!member) throw new ORPCError("NOT_FOUND");
+      return context.db.select({ expense: expenses, shares: expenseShares }).from(expenses).leftJoin(expenseShares, eq(expenses.id, expenseShares.expenseId)).where(and(eq(expenses.tripId, input.tripId), isNull(expenses.deletedAt))).orderBy(desc(expenses.occurredAt));
+    }),
+    create: protectedProcedure.input(expenseInput).handler(async ({ context, input }) => {
+      const access = await expenseAccess(context.db, context.session!.user.id, input.tripId, input.payerMemberId, input.shares.map((share) => share.memberId));
+      if (input.currency !== access.currency) throw new ORPCError("BAD_REQUEST", { message: "Expense currency must match the trip currency." });
+      const shares = input.splitType === "equal" ? equalShares(input.amountMinor, input.shares.map((share) => share.memberId)) : customShares(input.amountMinor, input.shares);
+      return context.db.transaction(async (tx) => {
+        const [expense] = await tx.insert(expenses).values({ tripId: input.tripId, createdByMemberId: access.memberId, payerMemberId: input.payerMemberId, description: input.description, amountMinor: input.amountMinor, currency: input.currency, occurredAt: new Date(input.occurredAt) }).returning();
+        if (!expense) throw new ORPCError("INTERNAL_SERVER_ERROR");
+        await tx.insert(expenseShares).values(shares.map((share) => ({ expenseId: expense.id, ...share })));
+        return expense;
+      });
+    }),
+    update: protectedProcedure.input(expenseInput.extend({ id: z.string().uuid() })).handler(async ({ context, input }) => {
+      const access = await expenseAccess(context.db, context.session!.user.id, input.tripId, input.payerMemberId, input.shares.map((share) => share.memberId), input.id);
+      if (input.currency !== access.currency) throw new ORPCError("BAD_REQUEST", { message: "Expense currency must match the trip currency." });
+      const shares = input.splitType === "equal" ? equalShares(input.amountMinor, input.shares.map((share) => share.memberId)) : customShares(input.amountMinor, input.shares);
+      return context.db.transaction(async (tx) => {
+        const [expense] = await tx.update(expenses).set({ payerMemberId: input.payerMemberId, description: input.description, amountMinor: input.amountMinor, currency: input.currency, occurredAt: new Date(input.occurredAt) }).where(and(eq(expenses.id, input.id), isNull(expenses.deletedAt))).returning();
+        if (!expense) throw new ORPCError("NOT_FOUND");
+        await tx.delete(expenseShares).where(eq(expenseShares.expenseId, input.id));
+        await tx.insert(expenseShares).values(shares.map((share) => ({ expenseId: input.id, ...share })));
+        return expense;
+      });
+    }),
+    remove: protectedProcedure.input(z.object({ tripId: z.string().uuid(), id: z.string().uuid() })).handler(async ({ context, input }) => {
+      await expenseAccess(context.db, context.session!.user.id, input.tripId, undefined, [], input.id);
+      const [removed] = await context.db.update(expenses).set({ deletedAt: new Date() }).where(and(eq(expenses.id, input.id), eq(expenses.tripId, input.tripId), isNull(expenses.deletedAt))).returning();
+      if (!removed) throw new ORPCError("NOT_FOUND");
+      return removed;
     }),
   },
 };
