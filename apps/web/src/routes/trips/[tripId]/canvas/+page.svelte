@@ -15,6 +15,7 @@
   let status = $state<"loading" | "saved" | "saving" | "error">("loading");
   let error = $state<string | null>(null);
   let promotion = $state<string | null>(null);
+  let realtime: EventSource | undefined;
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
   let unsubscribe: (() => void) | undefined;
   const versions = new Map<string, number>();
@@ -38,6 +39,9 @@
       });
       if (shapes.length) editor.createShapes(shapes);
       unsubscribe = editor.store.listen(handleStoreChange, { source: "user", scope: "document" });
+      realtime = new EventSource(`/realtime/trips/${tripId}`);
+      realtime.onmessage = (message) => applyRealtime(JSON.parse(message.data) as RealtimeMessage);
+      realtime.onerror = () => { if (status !== "saving") error = "Realtime connection lost. Changes will still save."; };
       status = "saved";
     } catch (caught) {
       showError(caught);
@@ -111,9 +115,31 @@
     error = caught instanceof Error ? caught.message : "Canvas changes could not be saved.";
   }
 
+  type RealtimeMessage = { type: string; objects?: CanvasRecord[]; payload?: { objectId: string; objectVersion?: number; data?: Record<string, unknown> } };
+  function applyRealtime(event: RealtimeMessage) {
+    if (!editor) return;
+    if (event.type === "snapshot" && event.objects && editor.getCurrentPageShapes().length === 0) {
+      const shapes = event.objects.map((record) => { versions.set(record.id, record.version); return recordToShape(record); });
+      if (shapes.length) editor.createShapes(shapes);
+      return;
+    }
+    if (!event.payload) return;
+    const existing = editor.getCurrentPageShapes().find((shape) => serverId(shape) === event.payload?.objectId);
+    if (event.type === "canvas.object.deleted") {
+      if (existing) editor.deleteShapes([existing.id]);
+      return;
+    }
+    const shapeData = event.payload.data?.shape;
+    if (!shapeData || typeof shapeData !== "object") return;
+    const shape = shapeData as TLShape;
+    if (existing) editor.updateShape({ ...shape, id: existing.id });
+    else editor.createShapes([shape]);
+  }
+
   onDestroy(() => {
     if (saveTimer) clearTimeout(saveTimer);
     unsubscribe?.();
+    realtime?.close();
     document.removeEventListener("fullscreenchange", handleFullscreenChange);
   });
 
