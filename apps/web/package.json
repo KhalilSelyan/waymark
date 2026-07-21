@@ -28,6 +28,8 @@
     "dotenv": "catalog:",
     "drizzle-orm": "^0.45.2",
     "nanoid": "^6.0.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
     "tldraw": "^5.2.5",
     "zod": "catalog:"
   },
@@ -40,6 +42,8 @@
     "@sveltejs/vite-plugin-svelte": "^7.1.2",
     "@tailwindcss/vite": "^4.3.2",
     "@tanstack/svelte-query-devtools": "^6.1.36",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
     "@waymark/api": "workspace:*",
     "@waymark/config": "workspace:*",
     "bits-ui": "^2.18.1",

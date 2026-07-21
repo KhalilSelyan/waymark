@@ -28,7 +28,7 @@
   {:else}
     <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       {#each data.trips as item}
-        <a href={`/trips/${item.trip.id}/settings`} class="group">
+        <a href={`/trips/${item.trip.id}`} class="group">
           <Card class="h-full transition-colors group-hover:border-primary/60">
             <CardHeader><p class="font-mono text-xs uppercase tracking-wider text-muted-foreground">{item.role}</p><CardTitle>{item.trip.name}</CardTitle></CardHeader>
             <CardContent class="space-y-3 text-sm text-muted-foreground">
