@@ -6,6 +6,7 @@
   import { Card, CardContent, CardHeader, CardTitle } from "$lib/components/ui/card/index.js";
   import { Input } from "$lib/components/ui/input/index.js";
   import { Label } from "$lib/components/ui/label/index.js";
+  import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "$lib/components/ui/table/index.js";
 
   type Row = Awaited<ReturnType<typeof client.itinerary.list>>[number];
   type Place = Awaited<ReturnType<typeof client.places.list>>[number];
@@ -15,6 +16,7 @@
   let saving = $state(false);
   let error = $state<string | null>(null);
   let editingId = $state<string | null>(null);
+  let view = $state<"schedule" | "table">("schedule");
   let form = $state({ day: "", title: "", placeId: "", startsAt: "", endsAt: "", notes: "", status: "planned" as "idea" | "planned" | "done" });
   const trip = $derived(page.data.trip);
   const tripId = $derived(page.params.tripId ?? "");
@@ -84,9 +86,12 @@
 <svelte:head><title>Timeline · {trip.name}</title></svelte:head>
 
 <section class="space-y-6">
-  <header><p class="font-mono text-xs uppercase tracking-[0.3em] text-muted-foreground">Timeline</p><h1 class="mt-2 text-3xl font-semibold">Build the itinerary.</h1><p class="mt-2 text-muted-foreground">Organize the trip by day, with room for ideas and unscheduled plans.</p></header>
+  <header class="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><p class="font-mono text-xs uppercase tracking-[0.3em] text-muted-foreground">Timeline</p><h1 class="mt-2 text-3xl font-semibold">Build the itinerary.</h1><p class="mt-2 text-muted-foreground">Organize the trip by day, with room for ideas and unscheduled plans.</p></div><div class="flex rounded-md border border-border p-1"><Button size="sm" variant={view === "schedule" ? "secondary" : "ghost"} onclick={() => view = "schedule"}>Schedule</Button><Button size="sm" variant={view === "table" ? "secondary" : "ghost"} onclick={() => view = "table"}>List</Button></div></header>
   {#if error}<div class="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">{error}</div>{/if}
-  <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+  {#if view === "table" && !loading}
+    {#if rows.length === 0}<Card class="border-dashed"><CardContent class="py-12 text-center text-sm text-muted-foreground">No itinerary items yet.</CardContent></Card>{:else}<Card class="overflow-hidden"><div class="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Day</TableHead><TableHead>Time</TableHead><TableHead>Plan</TableHead><TableHead>Place</TableHead><TableHead>Status</TableHead><TableHead><span class="sr-only">Actions</span></TableHead></TableRow></TableHeader><TableBody>{#each rows as row}<TableRow><TableCell>{row.item.day ? label(row.item.day) : "Unscheduled"}</TableCell><TableCell>{row.item.startsAt ? time(row.item.startsAt) : "Any time"}</TableCell><TableCell class="font-medium">{row.item.title}</TableCell><TableCell>{row.place?.name ?? "—"}</TableCell><TableCell class="capitalize">{row.item.status}</TableCell><TableCell><div class="flex justify-end gap-1"><Button variant="ghost" size="sm" onclick={() => edit(row)}>Edit</Button><Button variant="ghost" size="sm" onclick={() => archive(row.item.id)}>Archive</Button></div></TableCell></TableRow>{/each}</TableBody></Table></div></Card>{/if}
+  {/if}
+  <div class:invisible={view === "table"} class:hidden={view === "table"} class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
     <div class="space-y-6">
       {#if loading}<p class="text-sm text-muted-foreground">Loading itinerary...</p>
       {:else if rows.length === 0}
