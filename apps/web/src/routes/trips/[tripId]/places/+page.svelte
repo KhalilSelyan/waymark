@@ -1,0 +1,1 @@
+<section class="space-y-3"><p class="font-mono text-xs uppercase tracking-[0.3em] text-muted-foreground">Places</p><h1 class="text-3xl font-semibold">Collect places worth considering.</h1><p class="text-muted-foreground">Saved destinations, map links, and activities will live here.</p></section>

@@ -1,7 +1,6 @@
-import { requireTripMember } from "$lib/server/trip-access";
+import { redirect } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
 
-export const load: PageServerLoad = async ({ request, params, cookies }) => {
-  const access = await requireTripMember({ request, cookies }, params.tripId);
-  return { trip: access.trip, member: access.member };
+export const load: PageServerLoad = async ({ params }) => {
+  throw redirect(303, `/trips/${params.tripId}/canvas`);
 };

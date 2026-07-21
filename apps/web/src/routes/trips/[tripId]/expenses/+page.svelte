@@ -1,0 +1,1 @@
+<section class="space-y-3"><p class="font-mono text-xs uppercase tracking-[0.3em] text-muted-foreground">Expenses</p><h1 class="text-3xl font-semibold">Keep the money clear.</h1><p class="text-muted-foreground">Shared expenses, balances, and settlement suggestions will live here.</p></section>

@@ -1,0 +1,1 @@
+<section class="space-y-3"><p class="font-mono text-xs uppercase tracking-[0.3em] text-muted-foreground">Activity</p><h1 class="text-3xl font-semibold">See what changed.</h1><p class="text-muted-foreground">Important trip decisions and updates will appear here.</p></section>
