@@ -6,6 +6,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { hashInviteToken } from "$lib/invites";
 import { z } from "zod";
 import type { Actions, PageServerLoad } from "./$types";
+import { enforceRateLimit } from "$lib/server/rate-limit";
 
 const usernameSchema = z.string().trim().toLowerCase().regex(/^[a-z0-9_-]+$/).min(3).max(24);
 
@@ -17,6 +18,8 @@ export const load: PageServerLoad = async ({ params }) => {
 
 export const actions: Actions = {
   default: async ({ params, request, cookies, url }) => {
+    const clientKey = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+    if (!enforceRateLimit(`invite-join:${clientKey}`, 10, 15 * 60 * 1000)) return fail(429, { error: "Too many join attempts. Try again later." });
     const [invite] = await db.select({ trip: trips, invite: tripInvites }).from(tripInvites).innerJoin(trips, eq(tripInvites.tripId, trips.id)).where(and(eq(tripInvites.tokenHash, hashInviteToken(params.token)), isNull(tripInvites.revokedAt), isNull(trips.deletedAt))).limit(1);
     if (!invite) return fail(404, { error: "This invite is no longer available." });
     const data = Object.fromEntries(await request.formData());

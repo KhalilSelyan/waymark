@@ -5,6 +5,7 @@ import { tripInvites, trips, tripMembers } from "@waymark/db/schema";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { createInviteToken, hashInviteToken } from "$lib/invites";
 import type { Actions, PageServerLoad } from "./$types";
+import { enforceRateLimit } from "$lib/server/rate-limit";
 
 async function requireOwner(request: Request, tripId: string) {
   const session = await auth.api.getSession({ headers: request.headers });
@@ -29,6 +30,7 @@ export const load: PageServerLoad = async ({ request, params }) => {
 export const actions: Actions = {
   create: async ({ request, params, url }) => {
     const session = await requireOwner(request, params.tripId);
+    if (!enforceRateLimit(`invite-create:${session.user.id}:${params.tripId}`, 10, 60 * 60 * 1000)) return fail(429, { error: "Invite creation is temporarily rate-limited." });
     const token = createInviteToken();
     await db.insert(tripInvites).values({ tripId: params.tripId, createdByUserId: session.user.id, tokenHash: hashInviteToken(token) });
     return { inviteUrl: `${url.origin}/invite/${token}` };
