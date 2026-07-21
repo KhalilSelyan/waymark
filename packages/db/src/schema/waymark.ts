@@ -216,6 +216,7 @@ export const places = pgTable(
     latitude: text("latitude"),
     longitude: text("longitude"),
     mapUrl: text("map_url"),
+    url: text("url"),
     notes: text("notes"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")

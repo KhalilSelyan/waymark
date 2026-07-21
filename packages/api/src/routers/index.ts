@@ -1,10 +1,15 @@
 import type { RouterClient } from "@orpc/server";
 import { z } from "zod";
 import { and, desc, eq, isNull } from "drizzle-orm";
-import { canvasObjects, trips, tripMembers } from "@waymark/db/schema";
+import { canvasObjects, places, trips, tripMembers } from "@waymark/db/schema";
 import { ORPCError } from "@orpc/server";
 
 import { protectedProcedure, publicProcedure } from "../index";
+
+const httpUrl = z.string().url().refine((value) => {
+  const url = new URL(value);
+  return url.protocol === "http:" || url.protocol === "https:";
+}, "URL must use http or https");
 
 export const appRouter = {
   healthCheck: publicProcedure.handler(() => {
@@ -74,6 +79,31 @@ export const appRouter = {
       const [restored] = await context.db.update(canvasObjects).set({ deletedAt: null, version: 1 }).where(eq(canvasObjects.id, input.id)).returning();
       if (!restored) throw new ORPCError("NOT_FOUND");
       return restored;
+    }),
+  },
+  places: {
+    list: protectedProcedure.input(z.object({ tripId: z.string().uuid() })).handler(async ({ context, input }) => {
+      const [member] = await context.db.select({ id: tripMembers.id }).from(tripMembers).innerJoin(trips, eq(tripMembers.tripId, trips.id)).where(and(eq(tripMembers.tripId, input.tripId), eq(tripMembers.userId, context.session!.user.id), isNull(tripMembers.removedAt), isNull(trips.deletedAt))).limit(1);
+      if (!member) throw new ORPCError("NOT_FOUND");
+      return context.db.select().from(places).where(and(eq(places.tripId, input.tripId), isNull(places.deletedAt))).orderBy(desc(places.updatedAt));
+    }),
+    create: protectedProcedure.input(z.object({ tripId: z.string().uuid(), name: z.string().trim().min(1).max(200), address: z.string().trim().max(500).nullable().optional(), mapUrl: httpUrl.nullable().optional(), url: httpUrl.nullable().optional(), latitude: z.string().max(32).nullable().optional(), longitude: z.string().max(32).nullable().optional(), notes: z.string().trim().max(5000).nullable().optional() })).handler(async ({ context, input }) => {
+      const [member] = await context.db.select({ id: tripMembers.id }).from(tripMembers).innerJoin(trips, eq(tripMembers.tripId, trips.id)).where(and(eq(tripMembers.tripId, input.tripId), eq(tripMembers.userId, context.session!.user.id), isNull(tripMembers.removedAt), isNull(trips.deletedAt))).limit(1);
+      if (!member) throw new ORPCError("NOT_FOUND");
+      const [place] = await context.db.insert(places).values({ ...input, createdByMemberId: member.id, address: input.address ?? null, mapUrl: input.mapUrl ?? null, url: input.url ?? null, latitude: input.latitude ?? null, longitude: input.longitude ?? null, notes: input.notes ?? null }).returning();
+      return place;
+    }),
+    update: protectedProcedure.input(z.object({ id: z.string().uuid(), name: z.string().trim().min(1).max(200), address: z.string().trim().max(500).nullable().optional(), mapUrl: httpUrl.nullable().optional(), url: httpUrl.nullable().optional(), latitude: z.string().max(32).nullable().optional(), longitude: z.string().max(32).nullable().optional(), notes: z.string().trim().max(5000).nullable().optional() })).handler(async ({ context, input }) => {
+      const [current] = await context.db.select({ place: places }).from(places).innerJoin(tripMembers, eq(places.tripId, tripMembers.tripId)).where(and(eq(places.id, input.id), eq(tripMembers.userId, context.session!.user.id), isNull(places.deletedAt), isNull(tripMembers.removedAt))).limit(1);
+      if (!current) throw new ORPCError("NOT_FOUND");
+      const [place] = await context.db.update(places).set({ name: input.name, address: input.address ?? null, mapUrl: input.mapUrl ?? null, url: input.url ?? null, latitude: input.latitude ?? null, longitude: input.longitude ?? null, notes: input.notes ?? null }).where(eq(places.id, input.id)).returning();
+      return place;
+    }),
+    archive: protectedProcedure.input(z.object({ id: z.string().uuid() })).handler(async ({ context, input }) => {
+      const [current] = await context.db.select({ place: places }).from(places).innerJoin(tripMembers, eq(places.tripId, tripMembers.tripId)).where(and(eq(places.id, input.id), eq(tripMembers.userId, context.session!.user.id), isNull(places.deletedAt), isNull(tripMembers.removedAt))).limit(1);
+      if (!current) throw new ORPCError("NOT_FOUND");
+      const [place] = await context.db.update(places).set({ deletedAt: new Date() }).where(eq(places.id, input.id)).returning();
+      return place;
     }),
   },
 };
