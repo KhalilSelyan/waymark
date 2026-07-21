@@ -3,6 +3,8 @@ import { auth } from "@waymark/auth";
 import { db } from "@waymark/db";
 import { userProfiles } from "@waymark/db/schema";
 import { eq } from "drizzle-orm";
+import { and, desc, isNull, eq as equals } from "drizzle-orm";
+import { trips, tripMembers } from "@waymark/db/schema";
 import type { PageServerLoad } from "./$types";
 
 export const load: PageServerLoad = async ({ request }) => {
@@ -14,5 +16,12 @@ export const load: PageServerLoad = async ({ request }) => {
   });
   if (!profile) throw redirect(303, "/onboarding/username");
 
-  return { profile };
+  const tripList = await db
+    .select({ trip: trips, role: tripMembers.role })
+    .from(tripMembers)
+    .innerJoin(trips, equals(tripMembers.tripId, trips.id))
+    .where(and(equals(tripMembers.userId, session.user.id), isNull(trips.deletedAt)))
+    .orderBy(desc(trips.updatedAt));
+
+  return { profile, trips: tripList };
 };
