@@ -67,6 +67,13 @@ export const appRouter = {
         return result ?? null;
       }),
   },
+  members: {
+    list: protectedProcedure.input(z.object({ tripId: z.string().uuid() })).handler(async ({ context, input }) => {
+      const [access] = await context.db.select({ id: tripMembers.id }).from(tripMembers).innerJoin(trips, eq(tripMembers.tripId, trips.id)).where(and(eq(tripMembers.tripId, input.tripId), eq(tripMembers.userId, context.session!.user.id), isNull(tripMembers.removedAt), isNull(trips.deletedAt))).limit(1);
+      if (!access) throw new ORPCError("NOT_FOUND");
+      return context.db.select({ id: tripMembers.id, displayName: tripMembers.displayName, role: tripMembers.role }).from(tripMembers).where(and(eq(tripMembers.tripId, input.tripId), isNull(tripMembers.removedAt))).orderBy(tripMembers.displayName);
+    }),
+  },
   canvas: {
     list: protectedProcedure.input(z.object({ tripId: z.string().uuid() })).handler(async ({ context, input }) => {
       const [member] = await context.db.select({ id: tripMembers.id }).from(tripMembers).innerJoin(trips, eq(tripMembers.tripId, trips.id)).where(and(eq(tripMembers.tripId, input.tripId), eq(tripMembers.userId, context.session!.user.id), isNull(tripMembers.removedAt), isNull(trips.deletedAt))).limit(1);
