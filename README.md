@@ -36,15 +36,16 @@ The agreed domain rules are documented in [`docs/domain-model.md`](docs/domain-m
 - Invite people with a shareable link
 - Join with a lightweight guest identity
 - View trip members and their participation status
-- Edit shared trip content without manually refreshing
+- Edit shared trip content with realtime canvas updates, presence, and reconnect recovery
 
 ### Planning
 
-- Add draggable planning cards to a freeform canvas
+- Add and persist generic planning objects on a freeform tldraw canvas
 - Record ideas, places, activities, bookings, and notes
 - Organize confirmed plans into a day-by-day timeline
 - Attach map links and useful external URLs
-- Move items between the canvas and itinerary
+- Promote canvas text/note ideas into itinerary items
+- Add linked place cards to the canvas
 
 ### Expenses
 
@@ -91,7 +92,7 @@ Waymark currently uses the Better-T-Stack scaffold:
 - pnpm workspaces
 - Turborepo
 
-The planned realtime layer will support shared trip state, presence, reconnection, and conflict-safe updates. The exact transport and state model will be documented as the implementation develops.
+Realtime canvas updates use a membership-protected SSE stream with snapshots, heartbeats, reconnect backoff, presence, and cursor events. The event contract is documented in [`docs/realtime-event-contract.md`](docs/realtime-event-contract.md). Image assets use a local filesystem adapter in development and an S3-compatible adapter for R2 in production.
 
 ## Repository Structure
 
@@ -205,7 +206,13 @@ The initial implementation sequence is:
 
 ## Status
 
-Waymark is in active MVP development. The app currently includes authenticated trip workspaces, guest invites, a persistent tldraw canvas, places, itinerary planning, expense splitting, balances, settlement suggestions, realtime canvas updates, presence, activity history, security hardening, and Playwright smoke coverage. Full authenticated E2E journey coverage and production deployment validation remain open.
+Waymark is in active MVP development. Implemented slices include authenticated trip workspaces, guest invites, a persistent tldraw canvas, fullscreen mode, places, map-link enrichment, itinerary planning, list/table views, expense splitting, balances, settlement suggestions, realtime canvas updates, presence, live cursors, reconnect recovery, activity history, security hardening, webpage capture, asset storage, and Playwright smoke coverage.
+
+Open release work:
+
+- Complete authenticated E2E coverage for places, itinerary, expenses, and two-client realtime behavior.
+- Validate a production deployment and configure the R2 bucket/credentials.
+- Finish dedicated Waymark canvas shapes for activities, bookings, and expense references.
 
 The web app uses shadcn-svelte locally under `apps/web/src/lib/components/ui/`. The current setup uses the Zinc base theme; add components from the repository root with commands such as `pnpm --filter web exec shadcn-svelte add button`.
 
