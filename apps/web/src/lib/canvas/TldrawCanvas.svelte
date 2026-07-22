@@ -4,6 +4,7 @@
   import { createRoot, type Root } from "react-dom/client";
   import { Tldraw, type Editor } from "tldraw";
   import "tldraw/tldraw.css";
+  import { WebpageCardShapeUtil } from "./WebpageCardShapeUtil";
 
   let { onEditorMount }: { onEditorMount: (editor: Editor) => void | Promise<void> } = $props();
 
@@ -14,6 +15,7 @@
     root = createRoot(host);
     root.render(
       React.createElement(Tldraw, {
+        shapeUtils: [WebpageCardShapeUtil],
         onMount: (editor: Editor) => {
           void onEditorMount(editor);
         },

@@ -145,7 +145,7 @@ export const appRouter = {
       if (place) await recordActivity(context.db, place.tripId, current.memberId, "place.archived", { placeId: place.id, name: place.name });
       return place;
     }),
-    addToCanvas: protectedProcedure.input(z.object({ tripId: z.string().uuid(), placeId: z.string().uuid() })).handler(async ({ context, input }) => {
+     addToCanvas: protectedProcedure.input(z.object({ tripId: z.string().uuid(), placeId: z.string().uuid() })).handler(async ({ context, input }) => {
       const [member] = await context.db.select({ id: tripMembers.id }).from(tripMembers).innerJoin(trips, eq(tripMembers.tripId, trips.id)).where(and(eq(tripMembers.tripId, input.tripId), eq(tripMembers.userId, context.session!.user.id), isNull(tripMembers.removedAt), isNull(trips.deletedAt))).limit(1);
       if (!member) throw new ORPCError("NOT_FOUND");
       const [place] = await context.db.select().from(places).where(and(eq(places.id, input.placeId), eq(places.tripId, input.tripId), isNull(places.deletedAt))).limit(1);
@@ -153,12 +153,27 @@ export const appRouter = {
       const shapeId = `shape:${crypto.randomUUID()}`;
       const shape = { id: shapeId, type: "note", x: 80, y: 80, rotation: 0, index: "a1", parentId: "page:page", isLocked: false, opacity: 1, meta: { waymarkType: "place", waymarkRecordId: place.id }, props: { color: "blue", size: "m", font: "draw", align: "start", verticalAlign: "start", url: "", richText: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: place.name }] }] }, scale: 1 } };
       const [object] = await context.db.insert(canvasObjects).values({ tripId: input.tripId, createdByMemberId: member.id, type: "note", x: 80, y: 80, width: 280, height: 200, rotation: 0, zIndex: 0, data: { shape } }).returning();
-      return object;
-    }),
-  },
+       return object;
+     }),
+     saveCanvasObjectAsPlace: protectedProcedure.input(z.object({ tripId: z.string().uuid(), canvasObjectId: z.string().uuid(), name: z.string().trim().min(1).max(200), address: z.string().trim().max(500).nullable().optional(), url: httpUrl.nullable().optional(), notes: z.string().trim().max(5000).nullable().optional() })).handler(async ({ context, input }) => {
+       const [member] = await context.db.select({ id: tripMembers.id, startsOn: trips.startsOn }).from(tripMembers).innerJoin(trips, eq(tripMembers.tripId, trips.id)).where(and(eq(tripMembers.tripId, input.tripId), eq(tripMembers.userId, context.session!.user.id), isNull(tripMembers.removedAt), isNull(trips.deletedAt))).limit(1);
+       if (!member) throw new ORPCError("NOT_FOUND");
+       const [canvas] = await context.db.select({ object: canvasObjects }).from(canvasObjects).innerJoin(tripMembers, eq(canvasObjects.tripId, tripMembers.tripId)).where(and(eq(canvasObjects.id, input.canvasObjectId), eq(canvasObjects.tripId, input.tripId), eq(tripMembers.userId, context.session!.user.id), isNull(canvasObjects.deletedAt), isNull(tripMembers.removedAt))).limit(1);
+       if (!canvas) throw new ORPCError("NOT_FOUND");
+       const data = canvas.object.data && typeof canvas.object.data === "object" ? canvas.object.data as Record<string, unknown> : {};
+       const shape = data.shape && typeof data.shape === "object" ? data.shape as Record<string, unknown> : null;
+       const meta = shape?.meta && typeof shape.meta === "object" ? shape.meta as Record<string, unknown> : {};
+       if (meta.waymarkType === "place" && typeof meta.waymarkRecordId === "string") return context.db.select().from(places).where(eq(places.id, meta.waymarkRecordId)).limit(1).then(([place]) => place);
+       const [place] = await context.db.insert(places).values({ tripId: input.tripId, createdByMemberId: member.id, name: input.name, address: input.address ?? null, url: input.url ?? null, notes: input.notes ?? null }).returning();
+       if (!place || !shape) throw new ORPCError("INTERNAL_SERVER_ERROR");
+       await context.db.update(canvasObjects).set({ data: { ...data, shape: { ...shape, meta: { ...meta, waymarkType: "place", waymarkRecordId: place.id } } }, version: canvas.object.version + 1 }).where(eq(canvasObjects.id, input.canvasObjectId));
+       await recordActivity(context.db, input.tripId, member.id, "place.created", { placeId: place.id, name: place.name });
+       return place;
+     }),
+   },
   itinerary: {
     list: protectedProcedure.input(z.object({ tripId: z.string().uuid() })).handler(async ({ context, input }) => {
-      const [member] = await context.db.select({ id: tripMembers.id }).from(tripMembers).innerJoin(trips, eq(tripMembers.tripId, trips.id)).where(and(eq(tripMembers.tripId, input.tripId), eq(tripMembers.userId, context.session!.user.id), isNull(tripMembers.removedAt), isNull(trips.deletedAt))).limit(1);
+       const [member] = await context.db.select({ id: tripMembers.id, startsOn: trips.startsOn }).from(tripMembers).innerJoin(trips, eq(tripMembers.tripId, trips.id)).where(and(eq(tripMembers.tripId, input.tripId), eq(tripMembers.userId, context.session!.user.id), isNull(tripMembers.removedAt), isNull(trips.deletedAt))).limit(1);
       if (!member) throw new ORPCError("NOT_FOUND");
       return context.db.select({ item: itineraryItems, place: places }).from(itineraryItems).leftJoin(places, eq(itineraryItems.placeId, places.id)).where(and(eq(itineraryItems.tripId, input.tripId), isNull(itineraryItems.deletedAt))).orderBy(itineraryItems.day, itineraryItems.sortOrder, itineraryItems.createdAt);
     }),
@@ -183,18 +198,31 @@ export const appRouter = {
       if (item) await recordActivity(context.db, item.tripId, current.memberId, "itinerary.archived", { itineraryItemId: item.id, title: item.title });
       return item;
     }),
-    promoteCanvasObject: protectedProcedure.input(z.object({ tripId: z.string().uuid(), canvasObjectId: z.string().uuid(), day: z.string().date().nullable().optional() })).handler(async ({ context, input }) => {
-      const [member] = await context.db.select({ id: tripMembers.id }).from(tripMembers).innerJoin(trips, eq(tripMembers.tripId, trips.id)).where(and(eq(tripMembers.tripId, input.tripId), eq(tripMembers.userId, context.session!.user.id), isNull(tripMembers.removedAt), isNull(trips.deletedAt))).limit(1);
+     promoteCanvasObject: protectedProcedure.input(z.object({ tripId: z.string().uuid(), canvasObjectId: z.string().uuid(), day: z.string().date().nullable().optional(), title: z.string().trim().min(1).max(200).nullable().optional() })).handler(async ({ context, input }) => {
+       const [member] = await context.db.select({ id: tripMembers.id, startsOn: trips.startsOn }).from(tripMembers).innerJoin(trips, eq(tripMembers.tripId, trips.id)).where(and(eq(tripMembers.tripId, input.tripId), eq(tripMembers.userId, context.session!.user.id), isNull(tripMembers.removedAt), isNull(trips.deletedAt))).limit(1);
       if (!member) throw new ORPCError("NOT_FOUND");
       const [canvas] = await context.db.select({ object: canvasObjects }).from(canvasObjects).innerJoin(tripMembers, eq(canvasObjects.tripId, tripMembers.tripId)).where(and(eq(canvasObjects.id, input.canvasObjectId), eq(canvasObjects.tripId, input.tripId), eq(tripMembers.userId, context.session!.user.id), isNull(canvasObjects.deletedAt), isNull(tripMembers.removedAt))).limit(1);
       if (!canvas) throw new ORPCError("NOT_FOUND");
       const [existing] = await context.db.select({ id: itineraryItems.id }).from(itineraryItems).where(and(eq(itineraryItems.sourceCanvasObjectId, input.canvasObjectId), isNull(itineraryItems.deletedAt))).limit(1);
-      if (existing) return { id: existing.id, created: false };
+       if (existing) {
+         const effectiveDay = input.day ?? member.startsOn;
+         if (effectiveDay || input.title) {
+           await context.db.update(itineraryItems).set({ day: effectiveDay ?? undefined, title: input.title ?? undefined }).where(eq(itineraryItems.id, existing.id));
+         }
+         return { id: existing.id, created: false };
+       }
       const shape = canvas.object.data && typeof canvas.object.data === "object" && "shape" in canvas.object.data ? canvas.object.data.shape : null;
       const props = shape && typeof shape === "object" && "props" in shape && shape.props && typeof shape.props === "object" ? shape.props : null;
-      const rawText = props && "text" in props ? props.text : null;
-      const title = typeof rawText === "string" && rawText.trim() ? rawText.trim().slice(0, 200) : "Canvas idea";
-      const [item] = await context.db.insert(itineraryItems).values({ tripId: input.tripId, createdByMemberId: member.id, sourceCanvasObjectId: input.canvasObjectId, day: input.day ?? null, title, notes: typeof rawText === "string" ? rawText : null, status: "idea" }).returning({ id: itineraryItems.id });
+       const richText = props && "richText" in props ? props.richText : null;
+       const richTextContent = richText && typeof richText === "object" && "content" in richText && Array.isArray(richText.content) ? richText.content : [];
+       const richTextValue = richTextContent.flatMap((paragraph) => paragraph && typeof paragraph === "object" && "content" in paragraph && Array.isArray(paragraph.content) ? paragraph.content : []).map((part) => part && typeof part === "object" && "text" in part && typeof part.text === "string" ? part.text : "").join(" ").trim();
+       const rawText = props && "text" in props && typeof props.text === "string" ? props.text : richTextValue || (props && "title" in props && typeof props.title === "string" ? props.title : null);
+       const title = input.title?.trim() || (rawText && rawText.trim() ? (rawText.trim().split("\n")[0] ?? "Canvas idea").slice(0, 200) : "Canvas idea");
+       const notes = props && "url" in props && typeof props.url === "string" ? `${rawText ?? ""}\nSource: ${props.url}`.trim() : typeof rawText === "string" ? rawText : null;
+       const meta = shape && typeof shape === "object" && "meta" in shape && shape.meta && typeof shape.meta === "object" ? shape.meta : null;
+       const linkedPlaceId = meta && "waymarkType" in meta && meta.waymarkType === "place" && "waymarkRecordId" in meta && typeof meta.waymarkRecordId === "string" ? meta.waymarkRecordId : null;
+       const [linkedPlace] = linkedPlaceId ? await context.db.select({ id: places.id }).from(places).where(and(eq(places.id, linkedPlaceId), eq(places.tripId, input.tripId), isNull(places.deletedAt))).limit(1) : [];
+       const [item] = await context.db.insert(itineraryItems).values({ tripId: input.tripId, createdByMemberId: member.id, sourceCanvasObjectId: input.canvasObjectId, placeId: linkedPlace?.id ?? null, day: input.day ?? null, title: linkedPlace ? title === "Canvas idea" ? "Place idea" : title : title, notes, status: "idea" }).returning({ id: itineraryItems.id });
       if (!item) throw new ORPCError("INTERNAL_SERVER_ERROR");
       return { id: item.id, created: true };
     }),

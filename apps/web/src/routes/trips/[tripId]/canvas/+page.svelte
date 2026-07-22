@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
-  import { type Editor, type TLAsset, type TLShape } from "tldraw";
+  import { type Editor, type TLShape } from "tldraw";
   import { Button } from "$lib/components/ui/button/index.js";
   import { page } from "$app/state";
   import { browser } from "$app/environment";
@@ -18,6 +18,8 @@
   let promotion = $state<string | null>(null);
   let captureUrl = $state("");
   let captureStatus = $state<"idle" | "capturing" | "error">("idle");
+  let contextMenu = $state<{ x: number; y: number } | null>(null);
+  let contextTitle = $state("");
   let realtime: EventSource | undefined;
   let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
   let reconnectAttempt = 0;
@@ -100,23 +102,51 @@
     }
   }
 
-  async function promoteSelected() {
+  async function promoteSelected(titleOverride?: string) {
     const shape = editor?.getSelectedShapes()[0];
     const id = shape ? serverId(shape) : null;
     if (!shape || !id) {
-      promotion = "Select a saved text or note first.";
-      return;
-    }
-    if (shape.type !== "text" && shape.type !== "note") {
-      promotion = "Only text and note shapes can become itinerary ideas yet.";
+      promotion = "Select a saved canvas object first.";
       return;
     }
     try {
-      const result = await client.itinerary.promoteCanvasObject({ tripId, canvasObjectId: id });
+      const result = await client.itinerary.promoteCanvasObject({ tripId, canvasObjectId: id, day: page.data.trip.startsOn ?? null, title: titleOverride?.trim() || null });
       promotion = result.created ? "Added to itinerary as an idea." : "This idea is already on the itinerary.";
+      if (shape && result.id) editor?.updateShape({ ...shape, meta: { ...shape.meta, waymarkItineraryId: result.id } });
+      contextMenu = null;
+      contextTitle = "";
     } catch (caught) {
       promotion = caught instanceof Error ? caught.message : "The idea could not be added to the itinerary.";
     }
+  }
+
+  async function saveSelectedAsPlace() {
+    const shape = editor?.getSelectedShapes()[0];
+    const id = shape ? serverId(shape) : null;
+    if (!shape || !id || !contextTitle.trim()) return;
+    try {
+      const shapeProps = (shape as TLShape & { props?: { url?: unknown } }).props;
+      await client.places.saveCanvasObjectAsPlace({ tripId, canvasObjectId: id, name: contextTitle.trim(), url: typeof shapeProps?.url === "string" ? shapeProps.url : null });
+      promotion = "Saved as a place and linked to this canvas object.";
+      contextMenu = null;
+      contextTitle = "";
+    } catch (caught) {
+      promotion = caught instanceof Error ? caught.message : "The place could not be saved.";
+    }
+  }
+
+  function openContextMenu(event: MouseEvent) {
+    event.preventDefault();
+    const selected = editor?.getSelectedShapes()[0];
+    if (!selected || !serverId(selected)) return;
+    const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    contextMenu = { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
+    contextTitle = "";
+  }
+
+  function selectedRelationship() {
+    const meta = editor?.getSelectedShapes()[0]?.meta as { waymarkType?: string; waymarkRecordId?: string; waymarkItineraryId?: string } | undefined;
+    return meta;
   }
 
   async function captureWebpage() {
@@ -126,15 +156,8 @@
     try {
       const response = await fetch(`/api/trips/${tripId}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url: captureUrl.trim() }) });
       if (!response.ok) throw new Error("Capture failed. Check the URL and try again.");
-      const result = await response.json() as { shape: TLShape; asset: { id: string; mimeType: string; width: number | null; height: number | null; title: string | null } };
-      editor?.createAssets([{
-        id: `asset:${result.asset.id}` as TLAsset["id"],
-        typeName: "asset",
-        type: "image",
-        props: { name: result.asset.title ?? "Webpage screenshot", src: `/api/assets/${result.asset.id}`, w: result.asset.width ?? 640, h: result.asset.height ?? 450, mimeType: result.asset.mimeType, isAnimated: false },
-        meta: {},
-      }]);
-      editor?.createShapes([result.shape]);
+      const result = await response.json() as { shapes: TLShape[] };
+      editor?.createShapes(result.shapes);
       captureUrl = "";
       promotion = "Webpage screenshot added to the canvas.";
       captureStatus = "idle";
@@ -207,7 +230,8 @@
     const now = Date.now();
     if (now - lastCursorSent < 75) return;
     lastCursorSent = now;
-    void fetch(`/realtime/trips/${tripId}/cursor`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ x: event.clientX, y: event.clientY }) });
+    const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    void fetch(`/realtime/trips/${tripId}/cursor`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ x: event.clientX - bounds.left, y: event.clientY - bounds.top }) });
   }
 
   onDestroy(() => {
@@ -241,7 +265,7 @@
   <title>Canvas · {page.data.trip.name}</title>
 </svelte:head>
 
-<section bind:this={canvasSection} class="flex h-[calc(100svh-12rem)] min-h-[32rem] flex-col overflow-hidden rounded-xl border border-border bg-card fullscreen:h-svh fullscreen:rounded-none">
+<section bind:this={canvasSection} class="flex h-[calc(100svh-9rem)] min-h-[32rem] flex-col overflow-hidden border-y border-border bg-card fullscreen:h-svh fullscreen:rounded-none">
   <div class="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
     <div>
       <p class="font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Shared planning board</p>
@@ -249,7 +273,7 @@
       <p class="text-xs text-muted-foreground">{onlineMembers.length} online</p>
     </div>
     <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-      <Button variant="outline" size="sm" onclick={promoteSelected}>Add selected to itinerary</Button>
+      <Button variant="outline" size="sm" onclick={() => void promoteSelected()}>Add selected to itinerary</Button>
       <p class="text-xs text-muted-foreground" aria-live="polite">
         {#if status === "loading"}Loading canvas...{:else if status === "saving"}Saving...{:else if status === "error"}Save failed{:else}All changes saved{/if}
         · {realtimeStatus === "connected" ? "Live" : "Reconnecting"}
@@ -268,8 +292,25 @@
   {#if error}
     <div class="border-b border-destructive/30 bg-destructive/10 px-4 py-2 text-sm text-destructive" role="alert">{error}</div>
   {/if}
-  <div class="relative min-h-0 flex-1" role="application" aria-label="Shared planning canvas" onpointermove={broadcastCursor}>
+  <div class="relative min-h-0 flex-1" role="application" aria-label="Shared planning canvas" onpointermove={broadcastCursor} oncontextmenu={openContextMenu}>
     <TldrawCanvas onEditorMount={initialize} />
     {#each [...remoteCursors] as [memberId, cursor] (memberId)}<span class="pointer-events-none absolute rounded bg-background/90 px-1.5 py-0.5 text-[10px] shadow" style={`left:${cursor.x}px;top:${cursor.y}px;color:${cursor.color}`}>{cursor.displayName}</span>{/each}
+    {#if contextMenu}
+      <div class="absolute z-50 w-64 rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-xl" style={`left:${contextMenu.x}px;top:${contextMenu.y}px`} role="menu">
+        <p class="mb-2 text-xs font-semibold">Add object to itinerary</p>
+        {#if selectedRelationship()?.waymarkType === "place"}<p class="mb-2 text-[11px] text-muted-foreground">Linked to a saved place</p>{/if}
+        {#if selectedRelationship()?.waymarkItineraryId}<p class="mb-2 text-[11px] text-muted-foreground">Already linked to the itinerary</p>{/if}
+        {#if selectedRelationship()?.waymarkType === "place" && selectedRelationship()?.waymarkRecordId}
+          <a class="mb-2 block text-xs text-primary underline underline-offset-2" href={`/trips/${tripId}/places#${selectedRelationship()?.waymarkRecordId}`}>Open place</a>
+        {/if}
+        {#if selectedRelationship()?.waymarkItineraryId}
+          <a class="mb-2 block text-xs text-primary underline underline-offset-2" href={`/trips/${tripId}/timeline#${selectedRelationship()?.waymarkItineraryId}`}>Open timeline item</a>
+        {/if}
+        <label class="sr-only" for="context-title">Itinerary title</label>
+        <input id="context-title" class="mb-2 w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring" bind:value={contextTitle} placeholder="Title (optional)" onkeydown={(event) => { if (event.key === "Enter") void promoteSelected(contextTitle); }} />
+        <Button class="w-full" size="sm" onclick={() => void promoteSelected(contextTitle)}>Add to itinerary</Button>
+        <Button class="mt-2 w-full" variant="outline" size="sm" disabled={!contextTitle.trim()} onclick={() => void saveSelectedAsPlace()}>Save as place</Button>
+      </div>
+    {/if}
   </div>
 </section>

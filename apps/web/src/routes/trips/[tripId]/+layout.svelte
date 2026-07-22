@@ -17,6 +17,8 @@
   function isActive(path: string) {
     return page.url.pathname.includes(`/trips/${data.trip.id}/${path}`);
   }
+
+  const isCanvas = $derived(page.url.pathname.endsWith("/canvas"));
 </script>
 
 <div class="flex min-h-full flex-col">
@@ -40,7 +42,7 @@
       {/each}
     </nav>
   </header>
-  <main class="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6">
+  <main class={isCanvas ? "w-full flex-1" : "mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6"}>
     {@render children()}
   </main>
 </div>

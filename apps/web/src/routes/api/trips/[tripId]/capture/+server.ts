@@ -31,7 +31,16 @@ export const POST: RequestHandler = async ({ request, cookies, params }) => {
     page.on("response", (response) => { responseBytes += Number(response.headers()["content-length"] ?? 0); });
     const response = await page.goto(body.url, { waitUntil: "domcontentloaded", timeout: 15_000 });
     if (!response || !response.ok() || responseBytes > maxResponseBytes) throw new Error("Capture response rejected.");
-    await page.waitForTimeout(500);
+    await page.waitForLoadState("load", { timeout: 10_000 }).catch(() => undefined);
+    await page.waitForLoadState("networkidle", { timeout: 3_000 }).catch(() => undefined);
+    await page.evaluate(async () => {
+      await document.fonts.ready;
+      await Promise.race([
+        Promise.all([...document.images].map((image) => image.complete ? image.decode().catch(() => undefined) : new Promise<void>((resolve) => { image.addEventListener("load", () => resolve(), { once: true }); image.addEventListener("error", () => resolve(), { once: true }); }))),
+        new Promise<void>((resolve) => setTimeout(resolve, 3_000)),
+      ]);
+    }, undefined);
+    await page.waitForTimeout(350);
     const screenshot = await page.screenshot({ type: "png", fullPage: false });
     if (screenshot.byteLength > maxResponseBytes) throw new Error("Screenshot too large.");
     const id = randomUUID();
@@ -40,10 +49,9 @@ export const POST: RequestHandler = async ({ request, cookies, params }) => {
     const title = await page.title().catch(() => null);
     const [asset] = await db.insert(assets).values({ id, tripId: params.tripId, uploadedByMemberId: access.member.id, type: "webpage_screenshot", storageKey, sourceUrl: body.url, title, mimeType: "image/png", width: 1280, height: 900, byteSize: screenshot.byteLength }).returning();
     if (!asset) throw new Error("Asset metadata was not created.");
-    const shapeId = randomUUID();
-    const shape = { id: `shape:${shapeId}`, type: "image", x: 0, y: 0, rotation: 0, index: "a1", parentId: "page:page", isLocked: false, opacity: 1, meta: { assetId: asset.id }, props: { w: 640, h: 450, assetId: `asset:${asset.id}`, playing: false, url: `/api/assets/${asset.id}`, crop: { topLeft: { x: 0, y: 0 }, bottomRight: { x: 1, y: 1 } }, flipX: false, flipY: false, altText: title ?? body.url } };
-    const [object] = await db.insert(canvasObjects).values({ tripId: params.tripId, createdByMemberId: access.member.id, type: "image", x: 0, y: 0, width: 640, height: 450, rotation: 0, zIndex: 0, data: { shape, asset: { id: asset.id, mimeType: asset.mimeType, width: asset.width, height: asset.height, name: asset.title } } }).returning({ id: canvasObjects.id });
-    return json({ asset, canvasObjectId: object?.id, shape }, { status: 201 });
+    const shape = { id: `shape:${randomUUID()}`, type: "webpage-card", x: 0, y: 0, rotation: 0, index: "a1", parentId: "page:page", isLocked: false, opacity: 1, meta: { assetId: asset.id, sourceUrl: body.url }, props: { w: 420, h: 430, title: title ?? "Captured webpage", url: body.url, screenshotUrl: `/api/assets/${asset.id}` } };
+    const [object] = await db.insert(canvasObjects).values({ tripId: params.tripId, createdByMemberId: access.member.id, type: "webpage_screenshot", x: 0, y: 0, width: 420, height: 430, rotation: 0, zIndex: 0, data: { shape, asset: { id: asset.id, mimeType: asset.mimeType, width: asset.width, height: asset.height, name: asset.title } } }).returning({ id: canvasObjects.id });
+    return json({ asset, canvasObjectId: object?.id, shapes: [object ? { ...shape, meta: { ...shape.meta, waymarkObjectId: object.id } } : shape] }, { status: 201 });
   } catch (caught) {
     if (storageKey) await removeAsset(storageKey);
     throw error(502, caught instanceof Error ? "Webpage capture failed." : "Webpage capture failed.");
