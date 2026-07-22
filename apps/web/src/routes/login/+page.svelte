@@ -25,12 +25,12 @@
   <title>Sign in | Waymark</title>
 </svelte:head>
 
-<main class="flex min-h-full items-center justify-center px-6 py-16">
-  <section class="w-full max-w-md rounded-xl border border-border bg-card p-8 shadow-2xl">
+<main class="flex min-h-full items-center justify-center bg-neutral-950 px-4 py-16">
+  <section class="w-full max-w-md border border-white/10 bg-white/[.025] p-8">
     <div class="mb-8 space-y-3">
-      <p class="font-mono text-xs uppercase tracking-[0.3em] text-muted-foreground">Waymark</p>
+      <p class="font-mono text-xs uppercase tracking-[0.3em] text-sky-300">Waymark access</p>
       <h1 class="text-3xl font-semibold tracking-tight">Plan the trip together.</h1>
-      <p class="text-sm leading-6 text-muted-foreground">
+      <p class="text-sm leading-6 text-neutral-500">
         Sign in to create a shared trip workspace for plans, places, and expenses.
       </p>
     </div>
