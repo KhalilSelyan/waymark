@@ -148,11 +148,20 @@ export const appRouter = {
      addToCanvas: protectedProcedure.input(z.object({ tripId: z.string().uuid(), placeId: z.string().uuid() })).handler(async ({ context, input }) => {
       const [member] = await context.db.select({ id: tripMembers.id }).from(tripMembers).innerJoin(trips, eq(tripMembers.tripId, trips.id)).where(and(eq(tripMembers.tripId, input.tripId), eq(tripMembers.userId, context.session!.user.id), isNull(tripMembers.removedAt), isNull(trips.deletedAt))).limit(1);
       if (!member) throw new ORPCError("NOT_FOUND");
-      const [place] = await context.db.select().from(places).where(and(eq(places.id, input.placeId), eq(places.tripId, input.tripId), isNull(places.deletedAt))).limit(1);
-      if (!place) throw new ORPCError("NOT_FOUND");
-      const shapeId = `shape:${crypto.randomUUID()}`;
-      const shape = { id: shapeId, type: "note", x: 80, y: 80, rotation: 0, index: "a1", parentId: "page:page", isLocked: false, opacity: 1, meta: { waymarkType: "place", waymarkRecordId: place.id }, props: { color: "blue", size: "m", font: "draw", align: "start", verticalAlign: "start", url: "", richText: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: place.name }] }] }, scale: 1 } };
-      const [object] = await context.db.insert(canvasObjects).values({ tripId: input.tripId, createdByMemberId: member.id, type: "note", x: 80, y: 80, width: 280, height: 200, rotation: 0, zIndex: 0, data: { shape } }).returning();
+       const [place] = await context.db.select().from(places).where(and(eq(places.id, input.placeId), eq(places.tripId, input.tripId), isNull(places.deletedAt))).limit(1);
+       if (!place) throw new ORPCError("NOT_FOUND");
+       const shapeId = `shape:${crypto.randomUUID()}`;
+       const candidates = await context.db.select().from(canvasObjects).where(eq(canvasObjects.tripId, input.tripId)).orderBy(desc(canvasObjects.updatedAt));
+       const original = candidates.find((candidate) => {
+         const data = candidate.data && typeof candidate.data === "object" ? candidate.data as Record<string, unknown> : null;
+         const shape = data?.shape && typeof data.shape === "object" ? data.shape as Record<string, unknown> : null;
+         const meta = shape?.meta && typeof shape.meta === "object" ? shape.meta as Record<string, unknown> : null;
+         return meta?.waymarkRecordId === place.id;
+       });
+       const originalData = original?.data && typeof original.data === "object" ? original.data as Record<string, unknown> : null;
+       const originalShape = originalData?.shape && typeof originalData.shape === "object" ? originalData.shape as Record<string, unknown> : null;
+       const shape = originalShape ? { ...originalShape, id: shapeId, x: 80, y: 80, meta: { ...(originalShape.meta && typeof originalShape.meta === "object" ? originalShape.meta : {}), waymarkType: "place", waymarkRecordId: place.id } } : { id: shapeId, type: "note", x: 80, y: 80, rotation: 0, index: "a1", parentId: "page:page", isLocked: false, opacity: 1, meta: { waymarkType: "place", waymarkRecordId: place.id }, props: { color: "blue", size: "m", font: "draw", align: "start", verticalAlign: "start", url: "", richText: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: place.name }] }] }, scale: 1 } };
+       const [object] = await context.db.insert(canvasObjects).values({ tripId: input.tripId, createdByMemberId: member.id, type: typeof shape.type === "string" ? shape.type : "note", x: 80, y: 80, width: original?.width ?? 280, height: original?.height ?? 200, rotation: typeof shape.rotation === "number" ? shape.rotation : 0, zIndex: 0, data: { ...(originalData ?? {}), shape, asset: originalData?.asset ?? undefined } }).returning();
        return object;
      }),
      saveCanvasObjectAsPlace: protectedProcedure.input(z.object({ tripId: z.string().uuid(), canvasObjectId: z.string().uuid(), name: z.string().trim().min(1).max(200), address: z.string().trim().max(500).nullable().optional(), url: httpUrl.nullable().optional(), notes: z.string().trim().max(5000).nullable().optional() })).handler(async ({ context, input }) => {
