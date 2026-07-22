@@ -198,13 +198,13 @@
 </svelte:head>
 
 <section bind:this={canvasSection} class="flex h-[calc(100svh-12rem)] min-h-[32rem] flex-col overflow-hidden rounded-xl border border-border bg-card fullscreen:h-svh fullscreen:rounded-none">
-  <div class="flex items-center justify-between gap-4 border-b border-border px-4 py-3">
+  <div class="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
     <div>
       <p class="font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Shared planning board</p>
       <h1 class="text-lg font-semibold">Sketch the trip together</h1>
       <p class="text-xs text-muted-foreground">{onlineMembers.length} online</p>
     </div>
-    <div class="flex items-center gap-3">
+    <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto">
       <Button variant="outline" size="sm" onclick={promoteSelected}>Add selected to itinerary</Button>
       <p class="text-xs text-muted-foreground" aria-live="polite">
         {#if status === "loading"}Loading canvas...{:else if status === "saving"}Saving...{:else if status === "error"}Save failed{:else}All changes saved{/if}

@@ -21,12 +21,12 @@
 
 <div class="flex min-h-full flex-col">
   <header class="border-b border-border bg-card/80 backdrop-blur">
-    <div class="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
+    <div class="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6">
       <div class="min-w-0">
         <a href={`/trips/${data.trip.id}/canvas`} class="block truncate text-lg font-semibold tracking-tight hover:text-primary">{data.trip.name}</a>
         <p class="truncate text-xs text-muted-foreground">{data.trip.destination ?? "Shared trip"} · {data.member.displayName}</p>
       </div>
-      <div class="flex shrink-0 items-center gap-2">
+      <div class="flex w-full shrink-0 flex-wrap items-center gap-2 sm:w-auto">
         {#if data.isOwner}
           <Button href={`/trips/${data.trip.id}/settings/invites`} variant="outline" size="sm">Invite</Button>
           <Button href={`/trips/${data.trip.id}/settings`} variant="ghost" size="sm">Settings</Button>
@@ -36,7 +36,7 @@
     </div>
     <nav aria-label="Trip sections" class="mx-auto flex w-full max-w-7xl gap-1 overflow-x-auto px-4 sm:px-6">
       {#each sections as section}
-        <a href={`/trips/${data.trip.id}/${section.path}`} class={`whitespace-nowrap border-b-2 px-3 py-3 text-sm transition-colors ${isActive(section.path) ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`} aria-current={isActive(section.path) ? "page" : undefined}>{section.label}</a>
+        <a href={`/trips/${data.trip.id}/${section.path}`} class={`whitespace-nowrap border-b-2 px-3 py-3 text-sm transition-colors focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${isActive(section.path) ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`} aria-current={isActive(section.path) ? "page" : undefined}>{section.label}</a>
       {/each}
     </nav>
   </header>
