@@ -32,3 +32,26 @@ test("authenticated user can create a trip", async ({ page }) => {
   await page.getByRole("button", { name: "Create trip" }).click();
   await expect(page.getByText("Shared planning board")).toBeVisible();
 });
+
+test("creator can generate an invite and a guest can join", async ({ page, context }) => {
+  await page.goto("/trips/new");
+  await page.getByLabel("Trip name").fill(`Invite trip ${Date.now()}`);
+  await page.getByRole("button", { name: "Create trip" }).click();
+  const tripId = page.url().match(/trips\/([^/]+)\//)?.[1];
+  expect(tripId).toBeTruthy();
+  await page.goto(`/trips/${tripId}/settings/invites`);
+  await page.getByRole("button", { name: "Create invite link" }).click();
+  const invite = page.locator("text=/https?:\/\/.*\/invite\//");
+  await expect(invite).toBeVisible();
+  const inviteUrl = (await invite.textContent())?.trim();
+  expect(inviteUrl).toMatch(/\/invite\//);
+  const guest = await context.browser()?.newContext();
+  if (!guest) throw new Error("Could not create guest browser context.");
+  const guestPage = await guest.newPage();
+  await guestPage.goto(inviteUrl!);
+  await guestPage.getByLabel("Username").fill(`guest_${Date.now()}`);
+  await guestPage.getByLabel("Display name").fill("E2E Guest");
+  await guestPage.getByRole("button", { name: "Join trip" }).click();
+  await expect(guestPage).toHaveURL(new RegExp(`/trips/${tripId}`));
+  await guest.close();
+});
