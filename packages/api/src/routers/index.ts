@@ -156,7 +156,8 @@ export const appRouter = {
          const data = candidate.data && typeof candidate.data === "object" ? candidate.data as Record<string, unknown> : null;
          const shape = data?.shape && typeof data.shape === "object" ? data.shape as Record<string, unknown> : null;
          const meta = shape?.meta && typeof shape.meta === "object" ? shape.meta as Record<string, unknown> : null;
-         return meta?.waymarkRecordId === place.id;
+         const props = shape?.props && typeof shape.props === "object" ? shape.props as Record<string, unknown> : null;
+         return meta?.waymarkRecordId === place.id || (shape?.type === "webpage-card" && props?.url === place.url);
        });
        const originalData = original?.data && typeof original.data === "object" ? original.data as Record<string, unknown> : null;
        const originalShape = originalData?.shape && typeof originalData.shape === "object" ? originalData.shape as Record<string, unknown> : null;
