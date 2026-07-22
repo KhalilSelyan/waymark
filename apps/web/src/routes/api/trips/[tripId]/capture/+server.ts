@@ -1,7 +1,8 @@
 import { error, json } from "@sveltejs/kit";
 import { chromium } from "@playwright/test";
 import { db } from "@waymark/db";
-import { assets, canvasObjects } from "@waymark/db/schema";
+import { activityEvents, assets, canvasObjects } from "@waymark/db/schema";
+import { publishRealtimeEvent } from "@waymark/api/realtime-hub";
 import { requireTripMember } from "$lib/server/trip-access";
 import { enforceRateLimit } from "$lib/server/rate-limit";
 import { putAsset, removeAsset } from "$lib/server/asset-storage";
@@ -16,7 +17,8 @@ export const POST: RequestHandler = async ({ request, cookies, params }) => {
   if (!enforceRateLimit(`capture:${access.member.id}:${params.tripId}`, 10, 60 * 60 * 1000)) throw error(429, "Capture rate limit reached.");
   const body = await request.json().catch(() => null) as { url?: unknown } | null;
   if (typeof body?.url !== "string") throw error(400, "A webpage URL is required.");
-  try { await resolveSafeUrl(body.url); } catch { throw error(400, "This webpage URL is not allowed."); }
+  const sourceUrl = body.url;
+  try { await resolveSafeUrl(sourceUrl); } catch { throw error(400, "This webpage URL is not allowed."); }
 
   let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
   let storageKey = "";
@@ -24,13 +26,19 @@ export const POST: RequestHandler = async ({ request, cookies, params }) => {
     browser = await chromium.launch({ headless: true });
     const context = await browser.newContext({ javaScriptEnabled: true, serviceWorkers: "block", viewport: { width: 1280, height: 900 } });
     const page = await context.newPage();
-    await page.route("**/*", async (route) => {
-      try { await resolveSafeUrl(route.request().url()); await route.continue(); }
-      catch { await route.abort("blockedbyclient"); }
-    });
-    let responseBytes = 0;
-    page.on("response", (response) => { responseBytes += Number(response.headers()["content-length"] ?? 0); });
-    const response = await page.goto(body.url, { waitUntil: "domcontentloaded", timeout: 15_000 });
+     await page.route("**/*", async (route) => {
+       try {
+         await resolveSafeUrl(route.request().url());
+         const response = await route.fetch();
+         const body = await response.body();
+         responseBytes += body.byteLength;
+         if (responseBytes > maxResponseBytes) throw new Error("Capture response rejected.");
+         await route.fulfill({ response, body });
+       }
+       catch { await route.abort("blockedbyclient"); }
+     });
+     let responseBytes = 0;
+     const response = await page.goto(sourceUrl, { waitUntil: "domcontentloaded", timeout: 15_000 });
     if (!response || !response.ok() || responseBytes > maxResponseBytes) throw new Error("Capture response rejected.");
     await page.waitForLoadState("load", { timeout: 10_000 }).catch(() => undefined);
     await page.waitForLoadState("networkidle", { timeout: 3_000 }).catch(() => undefined);
@@ -48,11 +56,18 @@ export const POST: RequestHandler = async ({ request, cookies, params }) => {
     storageKey = `trips/${params.tripId}/assets/${id}`;
     await putAsset(storageKey, screenshot);
     const title = await page.title().catch(() => null);
-    const [asset] = await db.insert(assets).values({ id, tripId: params.tripId, uploadedByMemberId: access.member.id, type: "webpage_screenshot", storageKey, sourceUrl: body.url, title, mimeType: "image/jpeg", width: 1280, height: 900, byteSize: screenshot.byteLength }).returning();
-    if (!asset) throw new Error("Asset metadata was not created.");
-    const shape = { id: `shape:${randomUUID()}`, type: "webpage-card", x: 0, y: 0, rotation: 0, index: "a1", parentId: "page:page", isLocked: false, opacity: 1, meta: { assetId: asset.id, sourceUrl: body.url }, props: { w: 420, h: 430, title: title ?? "Captured webpage", url: body.url, screenshotUrl: `/api/assets/${asset.id}` } };
-    const [object] = await db.insert(canvasObjects).values({ tripId: params.tripId, createdByMemberId: access.member.id, type: "webpage_screenshot", x: 0, y: 0, width: 420, height: 430, rotation: 0, zIndex: 0, data: { shape, asset: { id: asset.id, mimeType: asset.mimeType, width: asset.width, height: asset.height, name: asset.title } } }).returning({ id: canvasObjects.id });
-    return json({ asset, canvasObjectId: object?.id, shapes: [object ? { ...shape, meta: { ...shape.meta, waymarkObjectId: object.id } } : shape] }, { status: 201 });
+     const result = await db.transaction(async (tx) => {
+       const [asset] = await tx.insert(assets).values({ tripId: params.tripId, uploadedByMemberId: access.member.id, type: "webpage_screenshot", storageKey, sourceUrl, title, mimeType: "image/jpeg", width: 1280, height: 900, byteSize: screenshot.byteLength }).returning();
+       if (!asset) throw new Error("Asset metadata was not created.");
+       const shape = { id: `shape:${randomUUID()}`, type: "webpage-card", x: 0, y: 0, rotation: 0, index: "a1", parentId: "page:page", isLocked: false, opacity: 1, meta: { assetId: asset.id, sourceUrl }, props: { w: 420, h: 430, title: title ?? "Captured webpage", url: sourceUrl, screenshotUrl: `/api/assets/${asset.id}` } };
+       const [object] = await tx.insert(canvasObjects).values({ tripId: params.tripId, createdByMemberId: access.member.id, type: "webpage_screenshot", x: 0, y: 0, width: 420, height: 430, rotation: 0, zIndex: 0, data: { shape, asset: { id: asset.id, mimeType: asset.mimeType, width: asset.width, height: asset.height, name: asset.title } } }).returning({ id: canvasObjects.id });
+       if (!object) throw new Error("Canvas object was not created.");
+       await tx.insert(activityEvents).values({ tripId: params.tripId, actorMemberId: access.member.id, eventType: "canvas.object.created", payload: { objectId: object.id, objectType: "webpage_screenshot" }, version: 1 });
+       return { asset, object, shape };
+     });
+     const { asset, object, shape } = result;
+     publishRealtimeEvent({ tripId: params.tripId, actorMemberId: access.member.id, type: "canvas.object.created", payload: { objectId: object.id, objectVersion: 1, shapeType: "webpage_screenshot", data: { ...shape, meta: { ...shape.meta, waymarkObjectId: object.id } } } });
+     return json({ asset, canvasObjectId: object?.id, shapes: [object ? { ...shape, meta: { ...shape.meta, waymarkObjectId: object.id } } : shape] }, { status: 201 });
   } catch (caught) {
     if (storageKey) await removeAsset(storageKey);
     console.error("Webpage capture failed", caught);

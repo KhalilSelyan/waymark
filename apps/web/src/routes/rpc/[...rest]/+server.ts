@@ -28,9 +28,10 @@ const apiHandler = new OpenAPIHandler(appRouter, {
   ],
 });
 
-const handle: RequestHandler = async ({ request }) => {
+const handle: RequestHandler = async ({ request, cookies }) => {
   const context = await createContext({
     headers: request.headers,
+    cookies,
   });
 
   const rpcResult = await rpcHandler.handle(request, {

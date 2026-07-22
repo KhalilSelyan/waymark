@@ -23,7 +23,11 @@ async function requireOwner(request: Request, tripId: string) {
 export const load: PageServerLoad = async ({ request, params }) => {
   await requireOwner(request, params.tripId);
   return {
-    invites: await db.select().from(tripInvites).where(eq(tripInvites.tripId, params.tripId)).orderBy(desc(tripInvites.createdAt)),
+    invites: await db
+      .select({ id: tripInvites.id, createdAt: tripInvites.createdAt, expiresAt: tripInvites.expiresAt, revokedAt: tripInvites.revokedAt })
+      .from(tripInvites)
+      .where(eq(tripInvites.tripId, params.tripId))
+      .orderBy(desc(tripInvites.createdAt)),
   };
 };
 
@@ -32,7 +36,12 @@ export const actions: Actions = {
     const session = await requireOwner(request, params.tripId);
     if (!enforceRateLimit(`invite-create:${session.user.id}:${params.tripId}`, 10, 60 * 60 * 1000)) return fail(429, { error: "Invite creation is temporarily rate-limited." });
     const token = createInviteToken();
-    await db.insert(tripInvites).values({ tripId: params.tripId, createdByUserId: session.user.id, tokenHash: hashInviteToken(token) });
+    await db.insert(tripInvites).values({
+      tripId: params.tripId,
+      createdByUserId: session.user.id,
+      tokenHash: hashInviteToken(token),
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    });
     return { inviteUrl: `${url.origin}/invite/${token}` };
   },
   revoke: async ({ request, params }) => {

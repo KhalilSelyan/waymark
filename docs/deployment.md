@@ -13,6 +13,10 @@ Configure these values through the deployment platform secret manager, never in 
 
 `WAYMARK_E2E` must not be enabled in production.
 
+## Realtime scaling
+
+The realtime hub currently stores listeners, stream versions, and presence in process memory. It is correct for a single web instance only; multiple instances require a shared pub/sub transport and shared stream-version store. No Redis or equivalent service is currently configured, so do not scale the web process horizontally while relying on realtime collaboration.
+
 If storage variables are omitted, the app uses local `.data/assets` storage. Use R2 or another persistent S3-compatible provider for production.
 
 For R2, create the bucket and a bucket-scoped API token in Cloudflare, then set the five `STORAGE_*` variables in the deployment secret manager. No R2 credentials belong in this repository.
@@ -43,6 +47,22 @@ Webpage capture uses Playwright's Chromium browser. The included Dockerfile and 
 
 Do not use `db:push` against production.
 
+### Backup validation
+
+Use the provider's native PostgreSQL backup tool before migration, and verify the artifact can be listed and restored into an isolated database. A successful backup command without a restore test is not sufficient validation.
+
+### Smoke check
+
+After deployment, verify all of the following from outside the container:
+
+```bash
+curl --fail "$APP_URL/health"
+curl --fail "$APP_URL/"
+curl --fail "$APP_URL/login"
+```
+
+Then sign in with a synthetic account, create a disposable trip, open Canvas, Places, Itinerary, Expenses, and Activity, and delete the trip. Do not use production personal accounts for this check.
+
 ## Rollback
 
 - Route traffic back to the previous application build.
@@ -51,4 +71,4 @@ Do not use `db:push` against production.
 
 ## Demo data
 
-Demo data must be created manually in a non-production database or through a future seed command using synthetic identities. Never commit OAuth credentials, invite tokens, or personal data.
+Demo data must be created manually in a non-production database or through a future seed command using synthetic identities. Never commit OAuth credentials, invite tokens, or personal data. Keep demo trips disposable and delete them after smoke testing.

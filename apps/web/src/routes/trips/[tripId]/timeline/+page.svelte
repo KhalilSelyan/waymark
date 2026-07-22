@@ -1,5 +1,6 @@
 <script lang="ts">
   import { page } from "$app/state";
+  import { browser } from "$app/environment";
   import { onMount } from "svelte";
   import { client } from "$lib/orpc";
   import { Button } from "$lib/components/ui/button/index.js";
@@ -29,6 +30,7 @@
   let form = $state({ day: "", title: "", placeId: "", startsAt: "", endsAt: "", notes: "", status: "planned" as "idea" | "planned" | "done" });
   let dayPickerOpen = $state(false);
   let archiveTarget = $state<Row | null>(null);
+  let realtime: EventSource | undefined;
   const trip = $derived(page.data.trip);
   const tripId = $derived(page.params.tripId ?? "");
 
@@ -45,7 +47,22 @@
     return populated.length > 0 ? populated.sort() : [];
   });
 
-  onMount(() => { void refresh(); });
+  function setView(next: "schedule" | "table") {
+    view = next;
+    if (browser) localStorage.setItem("waymark-itinerary-view", next);
+  }
+
+  onMount(() => {
+    const storedView = localStorage.getItem("waymark-itinerary-view");
+    if (storedView === "schedule" || storedView === "table") view = storedView;
+    void refresh();
+    realtime = new EventSource(`/realtime/trips/${tripId}`);
+    realtime.onmessage = (event) => {
+      const message = JSON.parse(event.data) as { type?: string };
+      if (message.type?.startsWith("itinerary.item.")) void refresh();
+    };
+    return () => realtime?.close();
+  });
 
   async function refresh() {
     loading = true;
@@ -124,10 +141,10 @@
 <svelte:head><title>Timeline · {trip.name}</title></svelte:head>
 
 <section class="space-y-6">
-  <header class="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><p class="font-mono text-xs uppercase tracking-[0.3em] text-muted-foreground">Timeline</p><h1 class="mt-2 text-3xl font-semibold">Build the itinerary.</h1><p class="mt-2 text-muted-foreground">Organize the trip by day, with room for ideas and unscheduled plans.</p></div><div class="flex rounded-md border border-border p-1"><Button size="sm" variant={view === "schedule" ? "secondary" : "ghost"} onclick={() => view = "schedule"}>Schedule</Button><Button size="sm" variant={view === "table" ? "secondary" : "ghost"} onclick={() => view = "table"}>List</Button></div></header>
+  <header class="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><p class="font-mono text-xs uppercase tracking-[0.3em] text-muted-foreground">Timeline</p><h1 class="mt-2 text-3xl font-semibold">Build the itinerary.</h1><p class="mt-2 text-muted-foreground">Organize the trip by day, with room for ideas and unscheduled plans.</p></div><div class="flex rounded-md border border-border p-1"><Button size="sm" variant={view === "schedule" ? "secondary" : "ghost"} onclick={() => setView("schedule")}>Schedule</Button><Button size="sm" variant={view === "table" ? "secondary" : "ghost"} onclick={() => setView("table")}>List</Button></div></header>
   {#if error}<div class="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">{error}</div>{/if}
   {#if view === "table" && !loading}
-    {#if rows.length === 0}<Card class="border-dashed"><CardContent class="py-12 text-center text-sm text-muted-foreground">No itinerary items yet.</CardContent></Card>{:else}<Card class="overflow-hidden"><div class="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Day</TableHead><TableHead>Time</TableHead><TableHead>Plan</TableHead><TableHead>Place</TableHead><TableHead>Status</TableHead><TableHead><span class="sr-only">Actions</span></TableHead></TableRow></TableHeader><TableBody>{#each rows as row}<TableRow><TableCell>{row.item.day ? label(row.item.day) : "Unscheduled"}</TableCell><TableCell>{row.item.startsAt ? time(row.item.startsAt) : "Any time"}</TableCell><TableCell class="font-medium">{row.item.title}</TableCell><TableCell>{row.place?.name ?? "—"}</TableCell><TableCell><Badge variant={row.item.status === "done" ? "secondary" : row.item.status === "planned" ? "default" : "outline"}>{row.item.status}</Badge></TableCell><TableCell><div class="flex justify-end gap-1"><Button variant="ghost" size="sm" onclick={() => edit(row)}>Edit</Button><Button variant="ghost" size="sm" onclick={() => archive(row.item.id)}>Archive</Button></div></TableCell></TableRow>{/each}</TableBody></Table></div></Card>{/if}
+    {#if rows.length === 0}<Card class="border-dashed"><CardContent class="py-12 text-center text-sm text-muted-foreground">No itinerary items yet.</CardContent></Card>{:else}<div class="sm:hidden space-y-3">{#each rows as row}<Card><CardContent class="space-y-3 py-4"><div><p class="font-medium">{row.item.title}</p><p class="text-sm text-muted-foreground">{row.item.day ? label(row.item.day) : "Unscheduled"} · {row.item.startsAt ? time(row.item.startsAt) : "Any time"}</p>{#if row.place}<p class="text-sm text-muted-foreground">{row.place.name}</p>{/if}</div><div class="flex items-center justify-between gap-2"><Badge variant={row.item.status === "done" ? "secondary" : row.item.status === "planned" ? "default" : "outline"}>{row.item.status}</Badge><div class="flex gap-1"><Button variant="ghost" size="sm" onclick={() => edit(row)}>Edit</Button><Button variant="ghost" size="sm" onclick={() => archive(row.item.id)}>Archive</Button></div></div></CardContent></Card>{/each}</div><Card class="hidden overflow-hidden sm:block"><Table><TableHeader><TableRow><TableHead>Day</TableHead><TableHead>Time</TableHead><TableHead>Plan</TableHead><TableHead>Place</TableHead><TableHead>Status</TableHead><TableHead><span class="sr-only">Actions</span></TableHead></TableRow></TableHeader><TableBody>{#each rows as row}<TableRow><TableCell>{row.item.day ? label(row.item.day) : "Unscheduled"}</TableCell><TableCell>{row.item.startsAt ? time(row.item.startsAt) : "Any time"}</TableCell><TableCell class="font-medium">{row.item.title}</TableCell><TableCell>{row.place?.name ?? "—"}</TableCell><TableCell><Badge variant={row.item.status === "done" ? "secondary" : row.item.status === "planned" ? "default" : "outline"}>{row.item.status}</Badge></TableCell><TableCell><div class="flex justify-end gap-1"><Button variant="ghost" size="sm" onclick={() => edit(row)}>Edit</Button><Button variant="ghost" size="sm" onclick={() => archive(row.item.id)}>Archive</Button></div></TableCell></TableRow>{/each}</TableBody></Table></Card>{/if}
   {/if}
   <div class:invisible={view === "table"} class:hidden={view === "table"} class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
     <div class="space-y-6">

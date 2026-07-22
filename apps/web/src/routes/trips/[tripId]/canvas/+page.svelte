@@ -30,6 +30,7 @@
   let lastCursorSent = 0;
   let cursorSendInFlight = false;
   let queuedCursor: { x: number; y: number } | null = null;
+  let lastStreamVersion = 0;
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
   let unsubscribe: (() => void) | undefined;
   const versions = new Map<string, number>();
@@ -214,7 +215,14 @@
     error = caught instanceof Error ? caught.message : "Canvas changes could not be saved.";
   }
 
-  type RealtimeMessage = { type: string; objects?: CanvasRecord[]; presence?: { memberId: string; displayName: string; color: string }[]; actorMemberId?: string; payload?: { objectId?: string; objectVersion?: number; data?: Record<string, unknown>; displayName?: string; color?: string; x?: number; y?: number } };
+  function discardUnsavedChanges() {
+    pending.clear();
+    removed.clear();
+    if (saveTimer) clearTimeout(saveTimer);
+    window.location.reload();
+  }
+
+  type RealtimeMessage = { type: string; streamVersion?: number; objects?: CanvasRecord[]; presence?: { memberId: string; displayName: string; color: string }[]; actorMemberId?: string; payload?: { objectId?: string; objectVersion?: number; data?: Record<string, unknown>; displayName?: string; color?: string; x?: number; y?: number } };
   function connectRealtime() {
     realtime?.close();
     realtime = new EventSource(`/realtime/trips/${tripId}`);
@@ -233,6 +241,17 @@
 
   function applyRealtime(event: RealtimeMessage) {
     if (!editor) return;
+    if (event.streamVersion !== undefined) {
+      if (lastStreamVersion > 0 && event.streamVersion > lastStreamVersion + 1) {
+        realtime?.close();
+        realtimeStatus = "reconnecting";
+        if (reconnectTimer) clearTimeout(reconnectTimer);
+        reconnectTimer = setTimeout(connectRealtime, 0);
+        return;
+      }
+      if (event.streamVersion <= lastStreamVersion) return;
+      lastStreamVersion = event.streamVersion;
+    }
     if (event.presence) onlineMembers = event.presence;
     if (event.type === "presence.joined" && event.actorMemberId && event.payload?.displayName) onlineMembers = [...onlineMembers.filter((member) => member.memberId !== event.actorMemberId), { memberId: event.actorMemberId, displayName: event.payload.displayName, color: event.payload.color ?? "" }];
     if (event.type === "presence.left" && event.actorMemberId) onlineMembers = onlineMembers.filter((member) => member.memberId !== event.actorMemberId);
@@ -244,12 +263,14 @@
       const incoming = new Map(event.objects.map((record) => [record.id, record]));
       for (const existing of editor.getCurrentPageShapes()) {
         const id = serverId(existing);
+        if (pending.has(existing.id) || removed.has(existing.id)) continue;
         if (id && !incoming.has(id)) editor.deleteShapes([existing.id]);
       }
       for (const record of event.objects) {
+        const existing = editor.getCurrentPageShapes().find((candidate) => serverId(candidate) === record.id);
+        if (existing && (pending.has(existing.id) || removed.has(existing.id))) continue;
         versions.set(record.id, record.version);
         const shape = recordToShape(record);
-        const existing = editor.getCurrentPageShapes().find((candidate) => serverId(candidate) === record.id);
         if (existing) editor.updateShape({ ...shape, id: existing.id });
         else editor.createShapes([shape]);
       }
@@ -257,6 +278,7 @@
     }
     if (!event.payload) return;
     const existing = editor.getCurrentPageShapes().find((shape) => serverId(shape) === event.payload?.objectId);
+    if (existing && (pending.has(existing.id) || removed.has(existing.id))) return;
     if (event.type === "canvas.object.deleted") {
       if (existing) editor.deleteShapes([existing.id]);
       return;
@@ -269,12 +291,20 @@
   }
 
   function broadcastCursor(event: PointerEvent) {
+    if (!editor) return;
     const now = Date.now();
-    const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect();
-    queuedCursor = { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
+    const point = editor.screenToPage({ x: event.clientX, y: event.clientY });
+    queuedCursor = { x: point.x, y: point.y };
     if (now - lastCursorSent < 33 || cursorSendInFlight) return;
     lastCursorSent = now;
     void flushCursor();
+  }
+
+  function cursorPosition(cursor: { x: number; y: number }) {
+    if (!editor || !canvasSection) return `left:${cursor.x + 12}px;top:${cursor.y + 12}px`;
+    const point = editor.pageToScreen(cursor);
+    const bounds = canvasSection.getBoundingClientRect();
+    return `left:${point.x - bounds.left + 12}px;top:${point.y - bounds.top + 12}px`;
   }
 
   async function flushCursor() {
@@ -353,13 +383,19 @@
     <input id="capture-url" class="min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring" type="url" bind:value={captureUrl} placeholder="Paste a public webpage URL to capture" />
     <Button type="submit" size="sm" variant="outline" disabled={captureStatus === "capturing"}>{captureStatus === "capturing" ? "Capturing..." : "Capture webpage"}</Button>
   </form>
-  {#if error}
-    <div class="border-b border-destructive/30 bg-destructive/10 px-4 py-2 text-sm text-destructive" role="alert">{error}</div>
-  {/if}
+   {#if error}
+     <div class="flex flex-wrap items-center justify-between gap-3 border-b border-destructive/30 bg-destructive/10 px-4 py-2 text-sm text-destructive" role="alert">
+       <span>{error}</span>
+       <span class="flex shrink-0 gap-2">
+         <Button variant="outline" size="sm" onclick={() => void flush()}>Retry</Button>
+         <Button variant="ghost" size="sm" onclick={discardUnsavedChanges}>Discard changes</Button>
+       </span>
+     </div>
+   {/if}
   <ContextMenu.Root bind:open={contextMenu} onOpenChange={handleContextMenuOpen}>
     <ContextMenu.Trigger class="relative min-h-0 flex-1" role="application" aria-label="Shared planning canvas" onpointermove={broadcastCursor}>
       <TldrawCanvas onEditorMount={initialize} />
-      {#each [...remoteCursors] as [memberId, cursor] (memberId)}<span class="pointer-events-none absolute rounded bg-background/90 px-1.5 py-0.5 text-[10px] shadow transition-[left,top] duration-75 ease-linear" style={`left:${cursor.x + 12}px;top:${cursor.y + 12}px;color:${cursor.color}`}>{cursor.displayName}</span>{/each}
+       {#each [...remoteCursors] as [memberId, cursor] (memberId)}<span class="pointer-events-none absolute rounded bg-background/90 px-1.5 py-0.5 text-[10px] shadow transition-[left,top] duration-75 ease-linear" style={`${cursorPosition(cursor)};color:${cursor.color}`}>{cursor.displayName}</span>{/each}
     </ContextMenu.Trigger>
     {#if contextMenu}
       <ContextMenu.Content class="w-64 p-3">

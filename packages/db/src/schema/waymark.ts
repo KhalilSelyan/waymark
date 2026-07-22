@@ -135,6 +135,7 @@ export const tripInvites = pgTable(
       .references(() => user.id, { onDelete: "restrict" }),
     tokenHash: text("token_hash").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
+    expiresAt: timestamp("expires_at"),
     revokedAt: timestamp("revoked_at"),
   },
   (table) => [

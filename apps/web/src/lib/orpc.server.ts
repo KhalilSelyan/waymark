@@ -12,6 +12,7 @@ const serverClient: AppRouterClient = createRouterClient(appRouter, {
     const event = getRequestEvent();
     return createContext({
       headers: event.request.headers,
+      cookies: event.cookies,
     });
   },
 });

@@ -1,15 +1,31 @@
 import type { RealtimeEvent } from "./realtime";
+import { Pool } from "pg";
 
 type Listener = (event: RealtimeEvent) => void;
 const listeners = new Map<string, Set<Listener>>();
 const versions = new Map<string, number>();
-const presence = new Map<string, Map<string, { displayName: string; color: string; lastSeen: number }>>();
+const presence = new Map<string, Map<string, { memberId: string; displayName: string; color: string; lastSeen: number }>>();
+const instanceId = crypto.randomUUID();
+const pubsub = process.env.DATABASE_URL ? new Pool({ connectionString: process.env.DATABASE_URL, max: 2 }) : null;
+void pubsub?.connect().then((client) => {
+  client.on("error", () => undefined);
+  void client.query("LISTEN waymark_realtime");
+  client.on("notification", (message) => {
+    if (!message.payload) return;
+    try {
+      const { origin, event } = JSON.parse(message.payload) as { origin?: string; event?: RealtimeEvent };
+      if (origin === instanceId || !event) return;
+      for (const listener of listeners.get(event.tripId) ?? []) listener(event);
+    } catch { /* Ignore malformed notifications from the shared channel. */ }
+  });
+}).catch(() => undefined);
 
 export function publishRealtimeEvent(event: Omit<RealtimeEvent, "eventId" | "occurredAt" | "streamVersion" | "protocolVersion">) {
   const streamVersion = (versions.get(event.tripId) ?? 0) + 1;
   versions.set(event.tripId, streamVersion);
   const complete = { ...event, protocolVersion: 1 as const, eventId: crypto.randomUUID(), occurredAt: new Date().toISOString(), streamVersion } as RealtimeEvent;
   for (const listener of listeners.get(event.tripId) ?? []) listener(complete);
+  void pubsub?.query("SELECT pg_notify($1, $2)", ["waymark_realtime", JSON.stringify({ origin: instanceId, event: complete })]).catch(() => undefined);
   return complete;
 }
 
@@ -23,10 +39,16 @@ export function subscribeRealtime(tripId: string, listener: Listener) {
   };
 }
 
+export function getStreamVersion(tripId: string) {
+  return versions.get(tripId) ?? 0;
+}
+
 export function joinPresence(tripId: string, memberId: string, displayName: string) {
   const members = presence.get(tripId) ?? new Map();
-  members.set(memberId, { displayName, color: `hsl(${Math.abs(hash(memberId)) % 360} 70% 55%)`, lastSeen: Date.now() });
+  const connectionId = crypto.randomUUID();
+  members.set(connectionId, { memberId, displayName, color: `hsl(${Math.abs(hash(memberId)) % 360} 70% 55%)`, lastSeen: Date.now() });
   presence.set(tripId, members);
+  return connectionId;
 }
 
 export function leavePresence(tripId: string, memberId: string) {
@@ -45,7 +67,7 @@ export function getPresence(tripId: string) {
   if (!members) return [];
   const now = Date.now();
   for (const [memberId, value] of members) if (now - value.lastSeen > 45_000) members.delete(memberId);
-  return [...members.entries()].map(([memberId, value]) => ({ memberId, displayName: value.displayName, color: value.color }));
+  return [...members.values()].map(({ memberId, displayName, color }) => ({ memberId, displayName, color }));
 }
 
 function hash(value: string) { return [...value].reduce((total, character) => ((total << 5) - total + character.charCodeAt(0)) | 0, 0); }

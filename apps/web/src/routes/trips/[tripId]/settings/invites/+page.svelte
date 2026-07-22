@@ -16,7 +16,7 @@
       {#if form?.inviteUrl}<div class="rounded-md border border-border bg-muted p-3 text-sm break-all">{form.inviteUrl}</div>{/if}
       <div class="space-y-3">
         {#each data.invites as invite}
-          <div class="flex items-center justify-between gap-4 rounded-md border border-border p-3 text-sm"><span class="text-muted-foreground">Created {invite.createdAt.toLocaleString()}</span>{#if invite.revokedAt}<span class="text-destructive">Revoked</span>{:else}<form method="POST" action="?/revoke" use:enhance><input type="hidden" name="inviteId" value={invite.id} /><Button type="submit" variant="outline" size="sm">Revoke</Button></form>{/if}</div>
+           <div class="flex items-center justify-between gap-4 rounded-md border border-border p-3 text-sm"><span class="text-muted-foreground">Created {invite.createdAt.toLocaleString()} · Expires {invite.expiresAt?.toLocaleDateString() ?? "never"}</span>{#if invite.revokedAt}<span class="text-destructive">Revoked</span>{:else}<form method="POST" action="?/revoke" use:enhance><input type="hidden" name="inviteId" value={invite.id} /><Button type="submit" variant="outline" size="sm">Revoke</Button></form>{/if}</div>
         {/each}
       </div>
     </CardContent>

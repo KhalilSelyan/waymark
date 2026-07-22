@@ -16,7 +16,7 @@
   let error = $state<string | null>(null);
   let message = $state<string | null>(null);
   let archiveTarget = $state<Place | null>(null);
-  let form = $state({ name: "", address: "", mapUrl: "", url: "", notes: "" });
+  let form = $state({ name: "", address: "", mapUrl: "", url: "", notes: "", latitude: "", longitude: "" });
   const tripId = $derived(page.params.tripId ?? "");
 
   onMount(() => { void refresh(); });
@@ -30,18 +30,18 @@
 
   function resetForm() {
     editingId = null;
-    form = { name: "", address: "", mapUrl: "", url: "", notes: "" };
+    form = { name: "", address: "", mapUrl: "", url: "", notes: "", latitude: "", longitude: "" };
   }
 
   function edit(place: Place) {
     editingId = place.id;
-    form = { name: place.name, address: place.address ?? "", mapUrl: place.mapUrl ?? "", url: place.url ?? "", notes: place.notes ?? "" };
+    form = { name: place.name, address: place.address ?? "", mapUrl: place.mapUrl ?? "", url: place.url ?? "", notes: place.notes ?? "", latitude: place.latitude ?? "", longitude: place.longitude ?? "" };
   }
 
   async function save() {
     saving = true;
     try {
-      const input = { name: form.name, address: form.address || null, mapUrl: form.mapUrl || null, url: form.url || null, notes: form.notes || null };
+      const input = { name: form.name, address: form.address || null, mapUrl: form.mapUrl || null, url: form.url || null, notes: form.notes || null, latitude: form.latitude || null, longitude: form.longitude || null };
       if (editingId) await client.places.update({ id: editingId, ...input });
       else await client.places.create({ tripId, ...input });
       resetForm();
@@ -65,8 +65,11 @@
     try {
       const response = await fetch(`/api/trips/${tripId}/places/enrich`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url: place.mapUrl }) });
       if (!response.ok) throw new Error("Place enrichment failed.");
-      const result = await response.json() as { address?: string };
+      const result = await response.json() as { name?: string; address?: string; latitude?: string; longitude?: string };
+      if (result.name) form.name = result.name;
       if (result.address) form.address = result.address;
+      if (result.latitude) form.latitude = result.latitude;
+      if (result.longitude) form.longitude = result.longitude;
       message = "Enrichment loaded for review. Save changes to apply it."; error = null;
     } catch (caught) { error = caught instanceof Error ? caught.message : "Place enrichment failed."; }
   }

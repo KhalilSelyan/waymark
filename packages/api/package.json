@@ -20,9 +20,11 @@
     "@waymark/env": "workspace:*",
     "dotenv": "catalog:",
     "drizzle-orm": "^0.45.2",
+    "pg": "^8.22.0",
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@types/pg": "^8.15.5",
     "@waymark/config": "workspace:*",
     "typescript": "catalog:",
     "vitest": "^4.1.10"
