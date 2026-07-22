@@ -20,6 +20,9 @@ export function createAuth() {
         clientSecret: env.GOOGLE_CLIENT_SECRET,
       },
     },
+    emailAndPassword: {
+      enabled: process.env.WAYMARK_E2E === "true",
+    },
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL,
     plugins: [],
