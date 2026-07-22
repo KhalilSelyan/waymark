@@ -17,6 +17,7 @@
       React.createElement(Tldraw, {
         shapeUtils: [WebpageCardShapeUtil],
         onMount: (editor: Editor) => {
+          editor.user.updateUserPreferences({ colorScheme: "dark" });
           void onEditorMount(editor);
         },
       }),
