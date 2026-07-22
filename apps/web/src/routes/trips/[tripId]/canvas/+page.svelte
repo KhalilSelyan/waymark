@@ -305,7 +305,7 @@
   {/if}
   <div class="relative min-h-0 flex-1" role="application" aria-label="Shared planning canvas" onpointermove={broadcastCursor} oncontextmenucapture={(event) => { event.preventDefault(); event.stopPropagation(); openContextMenu(event); }}>
     <TldrawCanvas onEditorMount={initialize} />
-    {#each [...remoteCursors] as [memberId, cursor] (memberId)}<span class="pointer-events-none absolute rounded bg-background/90 px-1.5 py-0.5 text-[10px] shadow" style={`left:${cursor.x}px;top:${cursor.y}px;color:${cursor.color}`}>{cursor.displayName}</span>{/each}
+    {#each [...remoteCursors] as [memberId, cursor] (memberId)}<span class="pointer-events-none absolute rounded bg-background/90 px-1.5 py-0.5 text-[10px] shadow" style={`left:${cursor.x + 12}px;top:${cursor.y + 12}px;color:${cursor.color}`}>{cursor.displayName}</span>{/each}
     {#if contextMenu}
       <div class="absolute z-50 w-64 rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-xl" style={`left:${contextMenu.x}px;top:${contextMenu.y}px`} role="menu" tabindex="-1" onpointerdown={(event) => event.stopPropagation()}>
         <p class="mb-2 text-xs font-semibold">Add object to itinerary</p>
