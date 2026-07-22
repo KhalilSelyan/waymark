@@ -37,8 +37,10 @@ export function recordToAsset(record: CanvasRecord): TLAsset | null {
 }
 
 export function shapeToPayload(shape: TLShape) {
-  const persisted = structuredClone(shape) as PersistedShape;
-  const { x, y } = persisted;
+  const persisted = JSON.parse(JSON.stringify(shape)) as PersistedShape;
+  const x = Number.isFinite(persisted.x) ? persisted.x : 0;
+  const y = Number.isFinite(persisted.y) ? persisted.y : 0;
+  const rotation = Number.isFinite(persisted.rotation) ? persisted.rotation : 0;
   const bounds = "props" in persisted && "w" in persisted.props && "h" in persisted.props
     ? { width: Number(persisted.props.w), height: Number(persisted.props.h) }
     : { width: null, height: null };
@@ -49,7 +51,7 @@ export function shapeToPayload(shape: TLShape) {
     y,
     width: Number.isFinite(bounds.width) ? bounds.width : null,
     height: Number.isFinite(bounds.height) ? bounds.height : null,
-    rotation: persisted.rotation,
+    rotation,
     zIndex: 0,
     data: { shape: persisted } as Record<string, unknown>,
   };
