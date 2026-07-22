@@ -15,6 +15,8 @@
   let status = $state<"loading" | "saved" | "saving" | "error">("loading");
   let error = $state<string | null>(null);
   let promotion = $state<string | null>(null);
+  let captureUrl = $state("");
+  let captureStatus = $state<"idle" | "capturing" | "error">("idle");
   let realtime: EventSource | undefined;
   let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
   let reconnectAttempt = 0;
@@ -109,6 +111,24 @@
       promotion = result.created ? "Added to itinerary as an idea." : "This idea is already on the itinerary.";
     } catch (caught) {
       promotion = caught instanceof Error ? caught.message : "The idea could not be added to the itinerary.";
+    }
+  }
+
+  async function captureWebpage() {
+    if (!captureUrl.trim() || captureStatus === "capturing") return;
+    captureStatus = "capturing";
+    promotion = null;
+    try {
+      const response = await fetch(`/api/trips/${tripId}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url: captureUrl.trim() }) });
+      if (!response.ok) throw new Error("Capture failed. Check the URL and try again.");
+      const result = await response.json() as { shape: TLShape };
+      editor?.createShapes([result.shape]);
+      captureUrl = "";
+      promotion = "Webpage screenshot added to the canvas.";
+      captureStatus = "idle";
+    } catch (caught) {
+      captureStatus = "error";
+      promotion = caught instanceof Error ? caught.message : "Webpage capture failed.";
     }
   }
 
@@ -216,6 +236,11 @@
     </div>
   </div>
   {#if promotion}<p class="border-b border-border px-4 py-2 text-xs text-muted-foreground" aria-live="polite">{promotion}</p>{/if}
+  <form class="flex flex-wrap gap-2 border-b border-border px-4 py-2" onsubmit={(event) => { event.preventDefault(); void captureWebpage(); }}>
+    <label class="sr-only" for="capture-url">Webpage URL</label>
+    <input id="capture-url" class="min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring" type="url" bind:value={captureUrl} placeholder="Paste a public webpage URL to capture" />
+    <Button type="submit" size="sm" variant="outline" disabled={captureStatus === "capturing"}>{captureStatus === "capturing" ? "Capturing..." : "Capture webpage"}</Button>
+  </form>
   {#if error}
     <div class="border-b border-destructive/30 bg-destructive/10 px-4 py-2 text-sm text-destructive" role="alert">{error}</div>
   {/if}
