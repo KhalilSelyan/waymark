@@ -29,6 +29,7 @@ export function recordToAsset(record: CanvasRecord): TLAsset | null {
   if (!assetId) return null;
   return {
     id: `asset:${assetId}` as TLAsset["id"],
+    typeName: "asset",
     type: "image",
     props: { name: typeof value.name === "string" ? value.name : "Webpage screenshot", src: `/api/assets/${assetId}`, w: Number(value.width) || 640, h: Number(value.height) || 450, mimeType: typeof value.mimeType === "string" ? value.mimeType : "image/png", isAnimated: false },
     meta: {},
