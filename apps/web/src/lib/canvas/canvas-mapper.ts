@@ -1,4 +1,4 @@
-import type { TLShape } from "tldraw";
+import type { TLAsset, TLShape } from "tldraw";
 import type { CanvasRecord, PersistedShape } from "./canvas-types";
 
 export function recordToShape(record: CanvasRecord): TLShape {
@@ -17,6 +17,22 @@ export function recordToShape(record: CanvasRecord): TLShape {
   }
   persisted.meta = { ...persisted.meta, waymarkObjectId: record.id };
   return persisted;
+}
+
+export function recordToAsset(record: CanvasRecord): TLAsset | null {
+  if (record.type !== "image") return null;
+  const asset = record.data.asset;
+  const shape = record.data.shape;
+  const shapeMeta = shape && typeof shape === "object" && "meta" in shape && shape.meta && typeof shape.meta === "object" ? shape.meta as { assetId?: unknown } : null;
+  const value = asset && typeof asset === "object" ? asset as { id?: unknown; mimeType?: unknown; width?: unknown; height?: unknown; name?: unknown } : {};
+  const assetId = typeof value.id === "string" ? value.id : typeof shapeMeta?.assetId === "string" ? shapeMeta.assetId.replace(/^asset:/, "") : null;
+  if (!assetId) return null;
+  return {
+    id: `asset:${assetId}` as TLAsset["id"],
+    type: "image",
+    props: { name: typeof value.name === "string" ? value.name : "Webpage screenshot", src: `/api/assets/${assetId}`, w: Number(value.width) || 640, h: Number(value.height) || 450, mimeType: typeof value.mimeType === "string" ? value.mimeType : "image/png", isAnimated: false },
+    meta: {},
+  } as TLAsset;
 }
 
 export function shapeToPayload(shape: TLShape) {

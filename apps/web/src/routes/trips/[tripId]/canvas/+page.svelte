@@ -7,7 +7,7 @@
   import { client } from "$lib/orpc";
   import TldrawCanvas from "$lib/canvas/TldrawCanvas.svelte";
   import { loadCanvas, createCanvasObject, updateCanvasObject, removeCanvasObject } from "$lib/canvas/canvas-persistence";
-  import { recordToShape } from "$lib/canvas/canvas-mapper";
+  import { recordToAsset, recordToShape } from "$lib/canvas/canvas-mapper";
   import type { CanvasRecord } from "$lib/canvas/canvas-types";
 
   let editor: Editor | null = null;
@@ -46,6 +46,8 @@
         versions.set(record.id, record.version);
         return recordToShape(record);
       });
+      const assets = records.map(recordToAsset).filter((asset): asset is NonNullable<typeof asset> => asset !== null);
+      if (assets.length) editor.createAssets(assets);
       if (shapes.length) editor.createShapes(shapes);
       unsubscribe = editor.store.listen(handleStoreChange, { source: "user", scope: "document" });
       connectRealtime();
