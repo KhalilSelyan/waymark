@@ -13,6 +13,7 @@
   import * as AlertDialog from "$lib/components/ui/alert-dialog/index.js";
   import { Select, SelectContent, SelectItem, SelectTrigger } from "$lib/components/ui/select/index.js";
   import { parseDate, type DateValue } from "@internationalized/date";
+  import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
   import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "$lib/components/ui/table/index.js";
 
   type Row = Awaited<ReturnType<typeof client.itinerary.list>>[number];
@@ -57,13 +58,13 @@
   function edit(row: Row) {
     const item = row.item;
     editingId = item.id;
-    form = { day: item.day ?? "", title: item.title, placeId: item.placeId ?? "", startsAt: item.startsAt ? new Date(item.startsAt).toISOString().slice(0, 16) : "", endsAt: item.endsAt ? new Date(item.endsAt).toISOString().slice(0, 16) : "", notes: item.notes ?? "", status: item.status };
+    form = { day: item.day ?? "", title: item.title, placeId: item.placeId ?? "", startsAt: item.startsAt ? formatInTimeZone(new Date(item.startsAt), trip.timezone, "yyyy-MM-dd'T'HH:mm") : "", endsAt: item.endsAt ? formatInTimeZone(new Date(item.endsAt), trip.timezone, "yyyy-MM-dd'T'HH:mm") : "", notes: item.notes ?? "", status: item.status };
     setTimeout(() => {
       editorPanel?.scrollIntoView({ behavior: "smooth", block: "nearest" });
       document.getElementById("item-title")?.focus();
     }, 0);
   }
-  function iso(value: string) { return value ? new Date(value).toISOString() : null; }
+  function iso(value: string) { return value ? fromZonedTime(value, trip.timezone).toISOString() : null; }
   function calendarValue() { return form.day ? parseDate(form.day) : undefined; }
   function chooseDay(value: DateValue | undefined) { form.day = value?.toString() ?? ""; dayPickerOpen = false; }
   function updateInput(row: Row, sortOrder: number) {

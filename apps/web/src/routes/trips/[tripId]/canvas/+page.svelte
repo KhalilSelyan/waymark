@@ -76,8 +76,6 @@
   async function flush() {
     const changes = [...pending.values()];
     const deletions = [...removed.values()];
-    pending.clear();
-    removed.clear();
 
     try {
       for (const shape of changes) {
@@ -90,10 +88,12 @@
           versions.set(created.id, created.version);
           editor?.updateShape({ ...shape, meta: { ...shape.meta, waymarkObjectId: created.id } });
         }
+        if (pending.get(shape.id) === shape) pending.delete(shape.id);
       }
       for (const shape of deletions) {
         const id = serverId(shape);
         if (id) await removeCanvasObject(client, shape, versions.get(id) ?? 1);
+        if (removed.get(shape.id) === shape) removed.delete(shape.id);
       }
       status = "saved";
       error = null;

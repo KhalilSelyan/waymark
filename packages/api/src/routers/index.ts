@@ -252,8 +252,9 @@ export const appRouter = {
       return context.db.transaction(async (tx) => {
         const [expense] = await tx.update(expenses).set({ payerMemberId: input.payerMemberId, description: input.description, amountMinor: input.amountMinor, currency: input.currency, splitType: input.splitType, occurredAt: new Date(input.occurredAt) }).where(and(eq(expenses.id, input.id), isNull(expenses.deletedAt))).returning();
         if (!expense) throw new ORPCError("NOT_FOUND");
-        await tx.delete(expenseShares).where(eq(expenseShares.expenseId, input.id));
-        await tx.insert(expenseShares).values(shares.map((share) => ({ expenseId: input.id, ...share })));
+         await tx.delete(expenseShares).where(eq(expenseShares.expenseId, input.id));
+         await tx.insert(expenseShares).values(shares.map((share) => ({ expenseId: input.id, ...share })));
+         await tx.delete(settlements).where(eq(settlements.tripId, input.tripId));
         await recordActivity(tx, input.tripId, access.memberId, "expense.updated", { expenseId: expense.id, description: expense.description });
         return expense;
       });
@@ -261,7 +262,8 @@ export const appRouter = {
     remove: protectedProcedure.input(z.object({ tripId: z.string().uuid(), id: z.string().uuid() })).handler(async ({ context, input }) => {
       await expenseAccess(context.db, context.session!.user.id, input.tripId, undefined, [], input.id);
       const [removed] = await context.db.update(expenses).set({ deletedAt: new Date() }).where(and(eq(expenses.id, input.id), eq(expenses.tripId, input.tripId), isNull(expenses.deletedAt))).returning();
-      if (!removed) throw new ORPCError("NOT_FOUND");
+       if (!removed) throw new ORPCError("NOT_FOUND");
+       await context.db.delete(settlements).where(eq(settlements.tripId, input.tripId));
       const [member] = await context.db.select({ id: tripMembers.id }).from(tripMembers).where(and(eq(tripMembers.tripId, input.tripId), eq(tripMembers.userId, context.session!.user.id), isNull(tripMembers.removedAt))).limit(1);
       if (member) await recordActivity(context.db, input.tripId, member.id, "expense.deleted", { expenseId: removed.id });
       return removed;

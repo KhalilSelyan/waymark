@@ -6,6 +6,7 @@
   import { Card, CardContent, CardHeader, CardTitle } from "$lib/components/ui/card/index.js";
   import { Input } from "$lib/components/ui/input/index.js";
   import { Label } from "$lib/components/ui/label/index.js";
+  import * as AlertDialog from "$lib/components/ui/alert-dialog/index.js";
 
   type Place = Awaited<ReturnType<typeof client.places.list>>[number];
   let places = $state<Place[]>([]);
@@ -13,6 +14,8 @@
   let loading = $state(true);
   let saving = $state(false);
   let error = $state<string | null>(null);
+  let message = $state<string | null>(null);
+  let archiveTarget = $state<Place | null>(null);
   let form = $state({ name: "", address: "", mapUrl: "", url: "", notes: "" });
   const tripId = $derived(page.params.tripId ?? "");
 
@@ -48,13 +51,12 @@
   }
 
   async function archive(id: string) {
-    if (!confirm("Archive this place?")) return;
-    try { await client.places.archive({ id }); places = places.filter((place) => place.id !== id); if (editingId === id) resetForm(); }
+    try { await client.places.archive({ id }); places = places.filter((place) => place.id !== id); if (editingId === id) resetForm(); archiveTarget = null; }
     catch (caught) { error = caught instanceof Error ? caught.message : "Place could not be archived."; }
   }
 
   async function addToCanvas(id: string) {
-    try { await client.places.addToCanvas({ tripId, placeId: id }); error = "Place added to the canvas."; }
+    try { await client.places.addToCanvas({ tripId, placeId: id }); message = "Place added to the canvas."; error = null; }
     catch (caught) { error = caught instanceof Error ? caught.message : "Place could not be added to the canvas."; }
   }
   async function enrich(place: Place) {
@@ -65,7 +67,7 @@
       if (!response.ok) throw new Error("Place enrichment failed.");
       const result = await response.json() as { address?: string };
       if (result.address) form.address = result.address;
-      error = "Enrichment loaded for review. Save changes to apply it.";
+      message = "Enrichment loaded for review. Save changes to apply it."; error = null;
     } catch (caught) { error = caught instanceof Error ? caught.message : "Place enrichment failed."; }
   }
 </script>
@@ -80,6 +82,7 @@
   </header>
 
   {#if error}<div class="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">{error}</div>{/if}
+  {#if message}<div class="rounded-lg border border-primary/30 bg-primary/10 px-4 py-3 text-sm text-primary" role="status">{message}</div>{/if}
 
   <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
     <div class="space-y-4">
@@ -96,7 +99,7 @@
                 {#if place.mapUrl}<button class="text-primary underline underline-offset-4 hover:text-foreground" onclick={() => void enrich(place)}>Enrich</button>{/if}
                 {#if place.url}<a class="text-primary underline underline-offset-4" href={place.url} target="_blank" rel="noreferrer noopener">Open website</a>{/if}
                 <button class="text-primary underline underline-offset-4 hover:text-foreground" onclick={() => void addToCanvas(place.id)}>Add to canvas</button>
-                <button class="text-muted-foreground underline underline-offset-4 hover:text-destructive" onclick={() => archive(place.id)}>Archive</button>
+                 <button class="text-muted-foreground underline underline-offset-4 hover:text-destructive" onclick={() => archiveTarget = place}>Archive</button>
               </div>
             </CardContent>
           </Card>
@@ -118,4 +121,7 @@
       </CardContent>
     </Card>
   </div>
+  <AlertDialog.Root open={Boolean(archiveTarget)} onOpenChange={(open) => { if (!open) archiveTarget = null; }}>
+    <AlertDialog.Content><AlertDialog.Header><AlertDialog.Title>Archive place?</AlertDialog.Title><AlertDialog.Description>{archiveTarget?.name} will be removed from the active Places list.</AlertDialog.Description></AlertDialog.Header><AlertDialog.Footer><AlertDialog.Cancel>Cancel</AlertDialog.Cancel><AlertDialog.Action class="bg-destructive text-destructive-foreground hover:bg-destructive/90" onclick={() => archiveTarget && void archive(archiveTarget.id)}>Archive</AlertDialog.Action></AlertDialog.Footer></AlertDialog.Content>
+  </AlertDialog.Root>
 </section>
