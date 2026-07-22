@@ -28,6 +28,8 @@
   let onlineMembers = $state<{ memberId: string; displayName: string; color: string }[]>([]);
   let remoteCursors = $state(new Map<string, { x: number; y: number; displayName: string; color: string }>());
   let lastCursorSent = 0;
+  let cursorSendInFlight = false;
+  let queuedCursor: { x: number; y: number } | null = null;
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
   let unsubscribe: (() => void) | undefined;
   const versions = new Map<string, number>();
@@ -268,10 +270,30 @@
 
   function broadcastCursor(event: PointerEvent) {
     const now = Date.now();
-    if (now - lastCursorSent < 75) return;
-    lastCursorSent = now;
     const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect();
-    void fetch(`/realtime/trips/${tripId}/cursor`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ x: event.clientX - bounds.left, y: event.clientY - bounds.top }) });
+    queuedCursor = { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
+    if (now - lastCursorSent < 33 || cursorSendInFlight) return;
+    lastCursorSent = now;
+    void flushCursor();
+  }
+
+  async function flushCursor() {
+    const cursor = queuedCursor;
+    if (!cursor || cursorSendInFlight) return;
+    queuedCursor = null;
+    cursorSendInFlight = true;
+    try {
+      await fetch(`/realtime/trips/${tripId}/cursor`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(cursor) });
+    } finally {
+      cursorSendInFlight = false;
+      if (queuedCursor) {
+        const delay = Math.max(0, 33 - (Date.now() - lastCursorSent));
+        setTimeout(() => {
+          lastCursorSent = Date.now();
+          void flushCursor();
+        }, delay);
+      }
+    }
   }
 
   onDestroy(() => {
@@ -337,7 +359,7 @@
   <ContextMenu.Root bind:open={contextMenu} onOpenChange={handleContextMenuOpen}>
     <ContextMenu.Trigger class="relative min-h-0 flex-1" role="application" aria-label="Shared planning canvas" onpointermove={broadcastCursor}>
       <TldrawCanvas onEditorMount={initialize} />
-      {#each [...remoteCursors] as [memberId, cursor] (memberId)}<span class="pointer-events-none absolute rounded bg-background/90 px-1.5 py-0.5 text-[10px] shadow" style={`left:${cursor.x + 12}px;top:${cursor.y + 12}px;color:${cursor.color}`}>{cursor.displayName}</span>{/each}
+      {#each [...remoteCursors] as [memberId, cursor] (memberId)}<span class="pointer-events-none absolute rounded bg-background/90 px-1.5 py-0.5 text-[10px] shadow transition-[left,top] duration-75 ease-linear" style={`left:${cursor.x + 12}px;top:${cursor.y + 12}px;color:${cursor.color}`}>{cursor.displayName}</span>{/each}
     </ContextMenu.Trigger>
     {#if contextMenu}
       <ContextMenu.Content class="w-64 p-3">
