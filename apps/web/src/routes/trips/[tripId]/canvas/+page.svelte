@@ -257,7 +257,7 @@
   {#if error}
     <div class="border-b border-destructive/30 bg-destructive/10 px-4 py-2 text-sm text-destructive" role="alert">{error}</div>
   {/if}
-  <div class="relative min-h-0 flex-1" onpointermove={broadcastCursor}>
+  <div class="relative min-h-0 flex-1" role="application" aria-label="Shared planning canvas" onpointermove={broadcastCursor}>
     <TldrawCanvas onEditorMount={initialize} />
     {#each [...remoteCursors] as [memberId, cursor] (memberId)}<span class="pointer-events-none absolute rounded bg-background/90 px-1.5 py-0.5 text-[10px] shadow" style={`left:${cursor.x}px;top:${cursor.y}px;color:${cursor.color}`}>{cursor.displayName}</span>{/each}
   </div>
