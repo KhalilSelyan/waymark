@@ -57,6 +57,17 @@
     try { await client.places.addToCanvas({ tripId, placeId: id }); error = "Place added to the canvas."; }
     catch (caught) { error = caught instanceof Error ? caught.message : "Place could not be added to the canvas."; }
   }
+  async function enrich(place: Place) {
+    if (!place.mapUrl) return;
+    edit(place);
+    try {
+      const response = await fetch(`/api/trips/${tripId}/places/enrich`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url: place.mapUrl }) });
+      if (!response.ok) throw new Error("Place enrichment failed.");
+      const result = await response.json() as { address?: string };
+      if (result.address) form.address = result.address;
+      error = "Enrichment loaded for review. Save changes to apply it.";
+    } catch (caught) { error = caught instanceof Error ? caught.message : "Place enrichment failed."; }
+  }
 </script>
 
 <svelte:head><title>Places · {page.data.trip.name}</title></svelte:head>
@@ -82,6 +93,7 @@
               {#if place.notes}<p class="whitespace-pre-wrap text-muted-foreground">{place.notes}</p>{/if}
               <div class="flex flex-wrap gap-3">
                 {#if place.mapUrl}<a class="text-primary underline underline-offset-4" href={place.mapUrl} target="_blank" rel="noreferrer noopener">Open map</a>{/if}
+                {#if place.mapUrl}<button class="text-primary underline underline-offset-4 hover:text-foreground" onclick={() => void enrich(place)}>Enrich</button>{/if}
                 {#if place.url}<a class="text-primary underline underline-offset-4" href={place.url} target="_blank" rel="noreferrer noopener">Open website</a>{/if}
                 <button class="text-primary underline underline-offset-4 hover:text-foreground" onclick={() => void addToCanvas(place.id)}>Add to canvas</button>
                 <button class="text-muted-foreground underline underline-offset-4 hover:text-destructive" onclick={() => archive(place.id)}>Archive</button>
