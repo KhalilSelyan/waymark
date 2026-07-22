@@ -63,7 +63,10 @@
     const change = entry as { changes: { added: Record<string, TLShape>; updated: Record<string, [TLShape, TLShape]>; removed: Record<string, TLShape> } };
     for (const shape of Object.values(change.changes.added)) pending.set(shape.id, shape);
     for (const [, [, shape]] of Object.entries(change.changes.updated)) pending.set(shape.id, shape);
-    for (const shape of Object.values(change.changes.removed)) removed.set(shape.id, shape);
+    for (const shape of Object.values(change.changes.removed)) {
+      pending.delete(shape.id);
+      removed.set(shape.id, shape);
+    }
     scheduleSave();
   }
 
