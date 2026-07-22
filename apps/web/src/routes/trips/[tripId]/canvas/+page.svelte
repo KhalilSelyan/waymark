@@ -144,6 +144,15 @@
     contextTitle = "";
   }
 
+  function dismissContextMenu(event: PointerEvent) {
+    if ((event.target as HTMLElement).closest("[role=menu]")) return;
+    contextMenu = null;
+  }
+
+  function handleCanvasKeydown(event: KeyboardEvent) {
+    if (event.key === "Escape") contextMenu = null;
+  }
+
   function selectedRelationship() {
     const meta = editor?.getSelectedShapes()[0]?.meta as { waymarkType?: string; waymarkRecordId?: string; waymarkItineraryId?: string } | undefined;
     return meta;
@@ -265,6 +274,8 @@
   <title>Canvas · {page.data.trip.name}</title>
 </svelte:head>
 
+<svelte:window onpointerdown={dismissContextMenu} onkeydown={handleCanvasKeydown} />
+
 <section bind:this={canvasSection} class="flex h-[calc(100svh-9rem)] min-h-[32rem] flex-col overflow-hidden border-y border-border bg-card fullscreen:h-svh fullscreen:rounded-none">
   <div class="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
     <div>
@@ -292,11 +303,11 @@
   {#if error}
     <div class="border-b border-destructive/30 bg-destructive/10 px-4 py-2 text-sm text-destructive" role="alert">{error}</div>
   {/if}
-  <div class="relative min-h-0 flex-1" role="application" aria-label="Shared planning canvas" onpointermove={broadcastCursor} oncontextmenu={openContextMenu}>
+  <div class="relative min-h-0 flex-1" role="application" aria-label="Shared planning canvas" onpointermove={broadcastCursor} oncontextmenucapture={(event) => { event.preventDefault(); event.stopPropagation(); openContextMenu(event); }}>
     <TldrawCanvas onEditorMount={initialize} />
     {#each [...remoteCursors] as [memberId, cursor] (memberId)}<span class="pointer-events-none absolute rounded bg-background/90 px-1.5 py-0.5 text-[10px] shadow" style={`left:${cursor.x}px;top:${cursor.y}px;color:${cursor.color}`}>{cursor.displayName}</span>{/each}
     {#if contextMenu}
-      <div class="absolute z-50 w-64 rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-xl" style={`left:${contextMenu.x}px;top:${contextMenu.y}px`} role="menu">
+      <div class="absolute z-50 w-64 rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-xl" style={`left:${contextMenu.x}px;top:${contextMenu.y}px`} role="menu" tabindex="-1" onpointerdown={(event) => event.stopPropagation()}>
         <p class="mb-2 text-xs font-semibold">Add object to itinerary</p>
         {#if selectedRelationship()?.waymarkType === "place"}<p class="mb-2 text-[11px] text-muted-foreground">Linked to a saved place</p>{/if}
         {#if selectedRelationship()?.waymarkItineraryId}<p class="mb-2 text-[11px] text-muted-foreground">Already linked to the itinerary</p>{/if}
