@@ -2,7 +2,7 @@ import { expect, test } from "./fixtures";
 
 test("landing page loads", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByText("API Status")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "The trip plan your whole group can actually use." })).toBeVisible();
 });
 
 test("login page exposes Google sign-in", async ({ page }) => {
