@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
-  import { type Editor, type TLShape } from "tldraw";
+  import { type Editor, type TLAsset, type TLShape } from "tldraw";
   import { Button } from "$lib/components/ui/button/index.js";
   import { page } from "$app/state";
   import { browser } from "$app/environment";
@@ -126,7 +126,14 @@
     try {
       const response = await fetch(`/api/trips/${tripId}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url: captureUrl.trim() }) });
       if (!response.ok) throw new Error("Capture failed. Check the URL and try again.");
-      const result = await response.json() as { shape: TLShape };
+      const result = await response.json() as { shape: TLShape; asset: { id: string; mimeType: string; width: number | null; height: number | null; title: string | null } };
+      editor?.createAssets([{
+        id: `asset:${result.asset.id}` as TLAsset["id"],
+        typeName: "asset",
+        type: "image",
+        props: { name: result.asset.title ?? "Webpage screenshot", src: `/api/assets/${result.asset.id}`, w: result.asset.width ?? 640, h: result.asset.height ?? 450, mimeType: result.asset.mimeType, isAnimated: false },
+        meta: {},
+      }]);
       editor?.createShapes([result.shape]);
       captureUrl = "";
       promotion = "Webpage screenshot added to the canvas.";
