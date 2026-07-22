@@ -313,7 +313,10 @@
     queuedCursor = null;
     cursorSendInFlight = true;
     try {
-      await fetch(`/realtime/trips/${tripId}/cursor`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(cursor) });
+      const clientMessageId = crypto.randomUUID();
+      const response = await fetch(`/realtime/trips/${tripId}/cursor`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...cursor, clientMessageId }) });
+      const ack = await response.json().catch(() => null) as { accepted?: boolean } | null;
+      if (!response.ok || !ack?.accepted) queuedCursor = cursor;
     } finally {
       cursorSendInFlight = false;
       if (queuedCursor) {

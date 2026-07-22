@@ -424,10 +424,12 @@ export const appRouter = {
     },
   },
   activity: {
-    list: protectedProcedure.input(z.object({ tripId: z.string().uuid(), limit: z.number().int().min(1).max(100).default(30), before: z.string().datetime({ offset: true }).optional() })).handler(async ({ context, input }) => {
+    list: protectedProcedure.input(z.object({ tripId: z.string().uuid(), limit: z.number().int().min(1).max(100).default(30), before: z.string().datetime({ offset: true }).optional(), beforeId: z.string().uuid().optional() })).handler(async ({ context, input }) => {
        const [member] = await context.db.select({ id: tripMembers.id }).from(tripMembers).innerJoin(trips, eq(tripMembers.tripId, trips.id)).leftJoin(tripGuests, eq(tripMembers.guestId, tripGuests.id)).where(and(eq(tripMembers.tripId, input.tripId), memberIdentity(context), isNull(tripMembers.removedAt), isNull(trips.deletedAt))).limit(1);
       if (!member) throw new ORPCError("NOT_FOUND");
-      return context.db.select({ event: activityEvents, actor: tripMembers.displayName }).from(activityEvents).innerJoin(tripMembers, eq(activityEvents.actorMemberId, tripMembers.id)).where(and(eq(activityEvents.tripId, input.tripId), input.before ? lt(activityEvents.createdAt, new Date(input.before)) : undefined)).orderBy(desc(activityEvents.createdAt)).limit(input.limit);
+       const before = input.before ? new Date(input.before) : null;
+       const cursor = before ? input.beforeId ? or(lt(activityEvents.createdAt, before), and(eq(activityEvents.createdAt, before), lt(activityEvents.id, input.beforeId))) : lt(activityEvents.createdAt, before) : undefined;
+       return context.db.select({ event: activityEvents, actor: tripMembers.displayName }).from(activityEvents).innerJoin(tripMembers, eq(activityEvents.actorMemberId, tripMembers.id)).where(and(eq(activityEvents.tripId, input.tripId), cursor)).orderBy(desc(activityEvents.createdAt), desc(activityEvents.id)).limit(input.limit);
     }),
   },
 };
