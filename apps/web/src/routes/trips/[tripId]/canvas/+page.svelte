@@ -167,6 +167,28 @@
     if (contextMenu) contextTitle = "";
   }
 
+  function selectedCanvasShape() {
+    return editor?.getSelectedShapes()[0] ?? null;
+  }
+
+  function duplicateSelected() {
+    const shape = selectedCanvasShape();
+    if (shape) editor?.duplicateShapes([shape.id]);
+    contextMenu = false;
+  }
+
+  function deleteSelected() {
+    const shape = selectedCanvasShape();
+    if (shape) editor?.deleteShapes([shape.id]);
+    contextMenu = false;
+  }
+
+  function zoomToSelected() {
+    const shape = selectedCanvasShape();
+    if (shape) editor?.zoomToSelection({ animation: { duration: 160 } });
+    contextMenu = false;
+  }
+
   async function captureWebpage() {
     if (!captureUrl.trim() || captureStatus === "capturing") return;
     captureStatus = "capturing";
@@ -319,6 +341,11 @@
     </ContextMenu.Trigger>
     {#if contextMenu}
       <ContextMenu.Content class="w-64 p-3">
+        <ContextMenu.Label>Canvas object</ContextMenu.Label>
+        <ContextMenu.Item onclick={duplicateSelected}>Duplicate <ContextMenu.Shortcut>⌘D</ContextMenu.Shortcut></ContextMenu.Item>
+        <ContextMenu.Item onclick={zoomToSelected}>Zoom to selection</ContextMenu.Item>
+        <ContextMenu.Separator />
+        <ContextMenu.Label>Waymark links</ContextMenu.Label>
         <p class="mb-2 text-xs font-semibold">Add object to itinerary</p>
         {#if selectedRelationship()?.waymarkType === "place"}<p class="mb-2 text-[11px] text-muted-foreground">Linked to a saved place</p>{/if}
         {#if selectedRelationship()?.waymarkItineraryId}<p class="mb-2 text-[11px] text-muted-foreground">Already linked to the itinerary</p>{/if}
@@ -332,6 +359,8 @@
         <input id="context-title" class="mb-2 w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring" bind:value={contextTitle} placeholder="Title (optional)" onkeydown={(event) => { if (event.key === "Enter") void promoteSelected(contextTitle); }} />
         <Button class="w-full" size="sm" onclick={() => void promoteSelected(contextTitle)}>Add to itinerary</Button>
         <Button class="mt-2 w-full" variant="outline" size="sm" disabled={!contextTitle.trim()} onclick={() => void saveSelectedAsPlace()}>Save as place</Button>
+        <ContextMenu.Separator />
+        <ContextMenu.Item class="text-destructive" onclick={deleteSelected}>Delete <ContextMenu.Shortcut>⌫</ContextMenu.Shortcut></ContextMenu.Item>
       </ContextMenu.Content>
     {/if}
   </ContextMenu.Root>
