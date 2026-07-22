@@ -8,6 +8,7 @@
   import { Label } from "$lib/components/ui/label/index.js";
   import { calculateBalances, equalShares, settlementSuggestions } from "@waymark/api/expenses";
   import * as AlertDialog from "$lib/components/ui/alert-dialog/index.js";
+  import { toMinor } from "$lib/expense-money";
 
   type ExpenseRow = Awaited<ReturnType<typeof client.expenses.list>>[number];
   type Member = Awaited<ReturnType<typeof client.members.list>>[number];
@@ -27,12 +28,6 @@
   let fieldErrors = $state<Record<string, string>>({});
   const trip = $derived(page.data.trip);
   const tripId = $derived(page.params.tripId ?? "");
-  function toMinor(value: string) {
-    const normalized = value.trim();
-    if (!/^\d+(?:\.\d{1,2})?$/.test(normalized)) return Number.NaN;
-    const [whole, fraction = ""] = normalized.split(".");
-    return Number(whole) * 100 + Number(fraction.padEnd(2, "0"));
-  }
   const amountMinor = $derived(toMinor(form.amount));
   const selectedTotalMinor = $derived(form.participantIds.reduce((sum, id) => sum + (toMinor(form.customAmounts[id] || "") || 0), 0));
   const remaining = $derived(amountMinor - selectedTotalMinor);
@@ -91,7 +86,7 @@
        <div class="space-y-2"><Label for="expense-payer">Paid by</Label><select id="expense-payer" bind:value={form.payerMemberId} class="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">{#each members as member}<option value={member.id}>{member.displayName}</option>{/each}</select>{#if fieldErrors.payerMemberId}<p class="text-xs text-destructive" role="alert">{fieldErrors.payerMemberId}</p>{/if}</div>
        <fieldset class="space-y-2"><legend class="text-sm font-medium">Participants</legend><div class="grid gap-2">{#each members as member}<label class="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.participantIds.includes(member.id)} onchange={() => toggleParticipant(member.id)} />{member.displayName}</label>{/each}</div>{#if fieldErrors.participants}<p class="text-xs text-destructive" role="alert">{fieldErrors.participants}</p>{/if}</fieldset>
       <div class="space-y-2"><Label for="split-type">Split method</Label><select id="split-type" bind:value={form.splitType} class="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"><option value="equal">Equal split</option><option value="custom">Custom amounts</option></select></div>
-        {#if fieldErrors.split}<p class="text-xs text-destructive" role="alert">{fieldErrors.split}</p>{/if}{#if form.splitType === "equal"}<p class="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">{form.participantIds.length && Number.isFinite(amountMinor) && amountMinor > 0 ? `Actual split: ${equalShares(amountMinor, form.participantIds).map((share) => `${members.find((member) => member.id === share.memberId)?.displayName ?? "Member"} ${money(share.amountMinor)}`).join(" · ")}` : "Select at least one participant and enter an amount."}</p>{:else}<div class="space-y-2">{#each form.participantIds as id}<div class="flex items-center gap-2"><Label class="min-w-24">{members.find((member) => member.id === id)?.displayName}</Label><Input type="number" min="0" step="0.01" bind:value={form.customAmounts[id]} /></div>{/each}<p class:text-destructive={remaining !== 0} class="text-xs text-muted-foreground">{remaining === 0 ? "Fully allocated." : `${money(Math.abs(remaining))} ${remaining > 0 ? "remaining" : "over allocated"}.`}</p></div>{/if}
+         {#if fieldErrors.split}<p class="text-xs text-destructive" role="alert">{fieldErrors.split}</p>{/if}{#if form.splitType === "equal"}<p class="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">{form.participantIds.length && Number.isFinite(amountMinor) && amountMinor > 0 ? `Actual split: ${equalShares(amountMinor, form.participantIds).map((share) => `${members.find((member) => member.id === share.memberId)?.displayName ?? "Member"} ${money(share.amountMinor)}`).join(" · ")}` : "Select at least one participant and enter an amount."}</p>{:else}<div class="space-y-2" aria-describedby="custom-share-status">{#each form.participantIds as id}<div class="flex items-center gap-2"><Label for={`custom-share-${id}`} class="min-w-24">{members.find((member) => member.id === id)?.displayName}</Label><Input id={`custom-share-${id}`} type="number" min="0" step="0.01" inputmode="decimal" bind:value={form.customAmounts[id]} /></div>{/each}<p id="custom-share-status" aria-live="polite" class:text-destructive={remaining !== 0} class="text-xs text-muted-foreground">{remaining === 0 ? "Fully allocated." : `${money(Math.abs(remaining))} ${remaining > 0 ? "remaining" : "over allocated"}.`}</p></div>{/if}
       <div class="flex gap-2"><Button type="submit" disabled={saving || !form.participantIds.length || (form.splitType === "custom" && remaining !== 0)}>{saving ? "Saving..." : editingId ? "Save changes" : "Add expense"}</Button>{#if editingId}<Button type="button" variant="ghost" onclick={reset}>Cancel</Button>{/if}</div>
     </form></CardContent></Card>
   </div>

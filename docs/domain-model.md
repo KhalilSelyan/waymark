@@ -17,7 +17,7 @@ This document defines the product and data invariants for the Waymark MVP.
 - A trip has a name, destination, start date, end date, timezone, and one currency.
 - Normal members can edit shared trip content.
 - The owner controls trip settings, member removal, invite links, and trip deletion.
-- Deleting a trip permanently deletes its associated data.
+- Deleting a trip is a soft delete in the MVP: the trip and its associated records remain in the database but are excluded from active application queries. There is no restore or user-facing permanent-delete flow yet; permanent data removal is an operational concern.
 
 ## Invitations
 

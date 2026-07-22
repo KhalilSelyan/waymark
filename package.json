@@ -15,6 +15,7 @@
     "check-types": "turbo run check-types",
     "dev:web": "turbo run dev -F web",
     "db:push": "turbo run db:push -F @waymark/db",
+    "db:check": "turbo run db:check -F @waymark/db",
     "db:studio": "turbo run db:studio -F @waymark/db",
     "db:generate": "turbo run db:generate -F @waymark/db",
     "db:migrate": "turbo run db:migrate -F @waymark/db",

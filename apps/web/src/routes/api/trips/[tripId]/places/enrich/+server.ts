@@ -2,6 +2,7 @@ import { error, json } from "@sveltejs/kit";
 import { requireTripMember } from "$lib/server/trip-access";
 import { enforceRateLimit } from "$lib/server/rate-limit";
 import { parseMapCoordinates } from "@waymark/api/map-enrichment";
+import { getMapProvider } from "$lib/server/map-provider";
 import type { RequestHandler } from "./$types";
 
 const cache = new Map<string, { expiresAt: number; value: Record<string, unknown> }>();
@@ -32,9 +33,8 @@ export const POST: RequestHandler = async ({ request, cookies, params }) => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 5_000);
   try {
-    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(coordinates?.latitude ?? "")}&lon=${encodeURIComponent(coordinates?.longitude ?? "")}`, { headers: { "user-agent": "Waymark/1.0 contact@example.invalid" }, signal: controller.signal });
-    const data = response.ok ? await response.json() as { display_name?: string; name?: string; address?: Record<string, string> } : null;
-    const value = { ...coordinates, name: data?.name, address: data?.display_name };
+    const data = await getMapProvider().reverseGeocode(coordinates.latitude, coordinates.longitude, controller.signal);
+    const value = { ...coordinates, name: data?.name, address: data?.address };
     cache.set(key, { expiresAt: Date.now() + 10 * 60 * 1000, value });
     return json(value);
   } catch { return json({ ...coordinates }); }

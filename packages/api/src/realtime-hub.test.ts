@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getPresence, getStreamVersion, joinPresence, leavePresence, publishRealtimeEvent, subscribeRealtime, touchPresence } from "./realtime-hub";
+import { getEventsSince, getPresence, getStreamVersion, joinPresence, leavePresence, publishRealtimeEvent, subscribeRealtime, touchPresence } from "./realtime-hub";
 
 describe("realtime hub", () => {
   it("publishes ordered events to local subscribers", () => {
@@ -25,5 +25,13 @@ describe("realtime hub", () => {
     expect(getPresence(tripId)).toEqual([{ memberId, displayName: "A", color: expect.any(String) }]);
     leavePresence(tripId, second);
     expect(getPresence(tripId)).toEqual([]);
+  });
+
+  it("replays events after a known stream version", () => {
+    const tripId = crypto.randomUUID();
+    const first = publishRealtimeEvent({ tripId, actorMemberId: crypto.randomUUID(), type: "presence.joined", payload: { displayName: "A", color: "red" } });
+    const second = publishRealtimeEvent({ tripId, actorMemberId: crypto.randomUUID(), type: "presence.left", payload: { reason: "disconnect" } });
+    expect(getEventsSince(tripId, first.streamVersion).map((event) => event.eventId)).toEqual([second.eventId]);
+    expect(getEventsSince(tripId, second.streamVersion)).toEqual([]);
   });
 });

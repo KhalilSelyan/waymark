@@ -9,8 +9,9 @@ import { putAsset, removeAsset } from "$lib/server/asset-storage";
 import { resolveSafeUrl } from "@waymark/api/url-safety";
 import { randomUUID } from "node:crypto";
 import type { RequestHandler } from "./$types";
+import { acceptsCaptureResponse, maxCaptureBytes } from "$lib/server/capture-limits";
 
-const maxResponseBytes = 15 * 1024 * 1024;
+const maxResponseBytes = maxCaptureBytes;
 
 export const POST: RequestHandler = async ({ request, cookies, params }) => {
   const access = await requireTripMember({ request, cookies }, params.tripId);
@@ -30,9 +31,11 @@ export const POST: RequestHandler = async ({ request, cookies, params }) => {
        try {
          await resolveSafeUrl(route.request().url());
          const response = await route.fetch();
+         const declaredLength = Number(response.headers()["content-length"] ?? 0);
+         if (!acceptsCaptureResponse(responseBytes, declaredLength, 0)) throw new Error("Capture response rejected.");
          const body = await response.body();
          responseBytes += body.byteLength;
-         if (responseBytes > maxResponseBytes) throw new Error("Capture response rejected.");
+         if (!acceptsCaptureResponse(responseBytes - body.byteLength, 0, body.byteLength)) throw new Error("Capture response rejected.");
          await route.fulfill({ response, body });
        }
        catch { await route.abort("blockedbyclient"); }

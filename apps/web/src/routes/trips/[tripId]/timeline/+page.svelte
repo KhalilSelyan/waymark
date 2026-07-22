@@ -16,6 +16,7 @@
   import { parseDate, type DateValue } from "@internationalized/date";
   import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
   import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "$lib/components/ui/table/index.js";
+  import { readItineraryView, writeItineraryView, type ItineraryView } from "$lib/itinerary-view";
 
   type Row = Awaited<ReturnType<typeof client.itinerary.list>>[number];
   type Place = Awaited<ReturnType<typeof client.places.list>>[number];
@@ -26,7 +27,7 @@
   let error = $state<string | null>(null);
   let editingId = $state<string | null>(null);
   let editorPanel: HTMLElement;
-  let view = $state<"schedule" | "table">("schedule");
+  let view = $state<ItineraryView>("schedule");
   let form = $state({ day: "", title: "", placeId: "", startsAt: "", endsAt: "", notes: "", status: "planned" as "idea" | "planned" | "done" });
   let dayPickerOpen = $state(false);
   let archiveTarget = $state<Row | null>(null);
@@ -47,14 +48,13 @@
     return populated.length > 0 ? populated.sort() : [];
   });
 
-  function setView(next: "schedule" | "table") {
+  function setView(next: ItineraryView) {
     view = next;
-    if (browser) localStorage.setItem("waymark-itinerary-view", next);
+    if (browser) writeItineraryView(localStorage, next);
   }
 
   onMount(() => {
-    const storedView = localStorage.getItem("waymark-itinerary-view");
-    if (storedView === "schedule" || storedView === "table") view = storedView;
+    view = readItineraryView(localStorage);
     void refresh();
     realtime = new EventSource(`/realtime/trips/${tripId}`);
     realtime.onmessage = (event) => {

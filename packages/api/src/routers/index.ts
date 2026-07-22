@@ -15,6 +15,12 @@ const httpUrl = z.string().url().refine((value) => {
 
 const expenseShareInput = z.object({ memberId: z.string().uuid(), amountMinor: z.number().int().nonnegative() });
 const expenseInput = z.object({ tripId: z.string().uuid(), payerMemberId: z.string().uuid(), description: z.string().trim().min(1).max(240), amountMinor: z.number().int().positive(), currency: z.string().regex(/^[A-Z]{3}$/), occurredAt: z.string().datetime({ offset: true }), splitType: z.enum(["equal", "custom"]), shares: z.array(expenseShareInput).min(1) });
+const canvasData = z.record(z.string(), z.unknown()).superRefine((value, ctx) => {
+  try {
+    if (new TextEncoder().encode(JSON.stringify(value)).byteLength > 256 * 1024) ctx.addIssue({ code: "custom", message: "Canvas data is too large." });
+  } catch { ctx.addIssue({ code: "custom", message: "Canvas data must be JSON-serializable." }); }
+});
+const canvasCoordinates = { x: z.number().finite(), y: z.number().finite(), rotation: z.number().finite() };
 
 async function recordActivity(database: any, tripId: string, actorMemberId: string, eventType: string, payload: Record<string, unknown>) {
   await database.insert(activityEvents).values({ tripId, actorMemberId, eventType, payload, version: 1 });
@@ -27,6 +33,19 @@ function canvasObjectTitle(data: unknown) {
   const props = shape.props;
   const value = "text" in props && typeof props.text === "string" ? props.text : "title" in props && typeof props.title === "string" ? props.title : null;
   return value?.trim().split("\n")[0]?.slice(0, 200) || null;
+}
+
+function syncPlaceCanvasData(data: unknown, placeId: string, name: string) {
+  if (!data || typeof data !== "object" || !("shape" in data) || !data.shape || typeof data.shape !== "object") return null;
+  const shape = data.shape as Record<string, unknown>;
+  const meta = shape.meta && typeof shape.meta === "object" ? shape.meta as Record<string, unknown> : null;
+  if (meta?.waymarkType !== "place" || meta.waymarkRecordId !== placeId) return null;
+  const props = shape.props && typeof shape.props === "object" ? { ...(shape.props as Record<string, unknown>) } : null;
+  if (props) {
+    if (typeof props.text === "string") props.text = name;
+    if (typeof props.title === "string") props.title = name;
+  }
+  return { ...data, shape: { ...shape, props: props ?? shape.props } };
 }
 
 function memberIdentity(context: { session: { user?: { id: string } } | null; guestTokenHashes: string[] }) {
@@ -98,7 +117,7 @@ export const appRouter = {
       if (!member) throw new ORPCError("NOT_FOUND");
       return context.db.select().from(canvasObjects).where(and(eq(canvasObjects.tripId, input.tripId), isNull(canvasObjects.deletedAt))).orderBy(canvasObjects.zIndex, canvasObjects.createdAt);
     }),
-    create: protectedProcedure.input(z.object({ tripId: z.string().uuid(), type: z.string().min(1).max(64), x: z.number(), y: z.number(), width: z.number().nullable().optional(), height: z.number().nullable().optional(), rotation: z.number().default(0), zIndex: z.number().int().default(0), data: z.record(z.string(), z.unknown()) })).handler(async ({ context, input }) => {
+     create: protectedProcedure.input(z.object({ tripId: z.string().uuid(), type: z.string().min(1).max(64), ...canvasCoordinates, width: z.number().finite().nullable().optional(), height: z.number().finite().nullable().optional(), zIndex: z.number().int().default(0), data: canvasData })).handler(async ({ context, input }) => {
       const [member] = await context.db.select({ id: tripMembers.id }).from(tripMembers).innerJoin(trips, eq(tripMembers.tripId, trips.id)).leftJoin(tripGuests, eq(tripMembers.guestId, tripGuests.id)).where(and(eq(tripMembers.tripId, input.tripId), memberIdentity(context), isNull(tripMembers.removedAt), isNull(trips.deletedAt))).limit(1);
       if (!member) throw new ORPCError("NOT_FOUND");
         const object = await context.db.transaction(async (tx) => {
@@ -109,7 +128,7 @@ export const appRouter = {
         if (object) publishRealtimeEvent({ tripId: input.tripId, actorMemberId: member.id, type: "canvas.object.created", payload: { objectId: object.id, objectVersion: object.version, shapeType: object.type, data: object.data as Record<string, unknown> } });
       return object;
     }),
-    update: protectedProcedure.input(z.object({ id: z.string().uuid(), version: z.number().int(), type: z.string().min(1).max(64), x: z.number(), y: z.number(), width: z.number().nullable().optional(), height: z.number().nullable().optional(), rotation: z.number(), zIndex: z.number().int(), data: z.record(z.string(), z.unknown()) })).handler(async ({ context, input }) => {
+     update: protectedProcedure.input(z.object({ id: z.string().uuid(), version: z.number().int().positive(), type: z.string().min(1).max(64), ...canvasCoordinates, width: z.number().finite().nullable().optional(), height: z.number().finite().nullable().optional(), zIndex: z.number().int(), data: canvasData })).handler(async ({ context, input }) => {
        const [current] = await context.db.select({ object: canvasObjects, memberId: tripMembers.id }).from(canvasObjects).innerJoin(tripMembers, eq(canvasObjects.tripId, tripMembers.tripId)).innerJoin(trips, eq(tripMembers.tripId, trips.id)).leftJoin(tripGuests, eq(tripMembers.guestId, tripGuests.id)).where(and(eq(canvasObjects.id, input.id), memberIdentity(context), isNull(canvasObjects.deletedAt), isNull(tripMembers.removedAt), isNull(trips.deletedAt))).limit(1);
       if (!current) throw new ORPCError("NOT_FOUND");
       if (current.object.version !== input.version) throw new ORPCError("CONFLICT");
@@ -184,17 +203,26 @@ export const appRouter = {
          if (created) await recordActivity(tx, input.tripId, member.id, "place.created", { placeId: created.id, name: created.name });
          return created;
        });
-      return place;
+       if (place) publishRealtimeEvent({ tripId: input.tripId, actorMemberId: member.id, type: "place.changed", payload: { placeId: place.id } });
+       return place;
     }),
     update: protectedProcedure.input(z.object({ id: z.string().uuid(), name: z.string().trim().min(1).max(200), address: z.string().trim().max(500).nullable().optional(), mapUrl: httpUrl.nullable().optional(), url: httpUrl.nullable().optional(), latitude: z.string().max(32).nullable().optional(), longitude: z.string().max(32).nullable().optional(), notes: z.string().trim().max(5000).nullable().optional() })).handler(async ({ context, input }) => {
         const [current] = await context.db.select({ place: places, memberId: tripMembers.id }).from(places).innerJoin(tripMembers, eq(places.tripId, tripMembers.tripId)).innerJoin(trips, eq(tripMembers.tripId, trips.id)).leftJoin(tripGuests, eq(tripMembers.guestId, tripGuests.id)).where(and(eq(places.id, input.id), memberIdentity(context), isNull(places.deletedAt), isNull(tripMembers.removedAt), isNull(trips.deletedAt))).limit(1);
       if (!current) throw new ORPCError("NOT_FOUND");
        const place = await context.db.transaction(async (tx) => {
-         const [updated] = await tx.update(places).set({ name: input.name, address: input.address ?? null, mapUrl: input.mapUrl ?? null, url: input.url ?? null, latitude: input.latitude ?? null, longitude: input.longitude ?? null, notes: input.notes ?? null }).where(eq(places.id, input.id)).returning();
-         if (updated) await recordActivity(tx, updated.tripId, current.memberId, "place.updated", { placeId: updated.id, name: updated.name });
-         return updated;
-       });
-      return place;
+          const [updated] = await tx.update(places).set({ name: input.name, address: input.address ?? null, mapUrl: input.mapUrl ?? null, url: input.url ?? null, latitude: input.latitude ?? null, longitude: input.longitude ?? null, notes: input.notes ?? null }).where(eq(places.id, input.id)).returning();
+          if (updated) await recordActivity(tx, updated.tripId, current.memberId, "place.updated", { placeId: updated.id, name: updated.name });
+          if (updated) {
+            const objects = await tx.select({ id: canvasObjects.id, data: canvasObjects.data, version: canvasObjects.version }).from(canvasObjects).where(and(eq(canvasObjects.tripId, updated.tripId), isNull(canvasObjects.deletedAt)));
+            for (const object of objects) {
+              const data = syncPlaceCanvasData(object.data, updated.id, updated.name);
+              if (data) await tx.update(canvasObjects).set({ data, version: object.version + 1 }).where(and(eq(canvasObjects.id, object.id), eq(canvasObjects.version, object.version)));
+            }
+          }
+          return updated;
+        });
+       if (place) publishRealtimeEvent({ tripId: current.place.tripId, actorMemberId: current.memberId, type: "place.changed", payload: { placeId: place.id } });
+       return place;
     }),
     archive: protectedProcedure.input(z.object({ id: z.string().uuid() })).handler(async ({ context, input }) => {
         const [current] = await context.db.select({ place: places, memberId: tripMembers.id }).from(places).innerJoin(tripMembers, eq(places.tripId, tripMembers.tripId)).innerJoin(trips, eq(tripMembers.tripId, trips.id)).leftJoin(tripGuests, eq(tripMembers.guestId, tripGuests.id)).where(and(eq(places.id, input.id), memberIdentity(context), isNull(places.deletedAt), isNull(tripMembers.removedAt), isNull(trips.deletedAt))).limit(1);
@@ -204,7 +232,8 @@ export const appRouter = {
          if (archived) await recordActivity(tx, archived.tripId, current.memberId, "place.archived", { placeId: archived.id, name: archived.name });
          return archived;
        });
-      return place;
+       if (place) publishRealtimeEvent({ tripId: current.place.tripId, actorMemberId: current.memberId, type: "place.changed", payload: { placeId: place.id } });
+       return place;
     }),
      addToCanvas: protectedProcedure.input(z.object({ tripId: z.string().uuid(), placeId: z.string().uuid() })).handler(async ({ context, input }) => {
       const [member] = await context.db.select({ id: tripMembers.id }).from(tripMembers).innerJoin(trips, eq(tripMembers.tripId, trips.id)).leftJoin(tripGuests, eq(tripMembers.guestId, tripGuests.id)).where(and(eq(tripMembers.tripId, input.tripId), memberIdentity(context), isNull(tripMembers.removedAt), isNull(trips.deletedAt))).limit(1);
@@ -300,7 +329,7 @@ export const appRouter = {
      promoteCanvasObject: protectedProcedure.input(z.object({ tripId: z.string().uuid(), canvasObjectId: z.string().uuid(), day: z.string().date().nullable().optional(), title: z.string().trim().min(1).max(200).nullable().optional() })).handler(async ({ context, input }) => {
         const [member] = await context.db.select({ id: tripMembers.id, startsOn: trips.startsOn }).from(tripMembers).innerJoin(trips, eq(tripMembers.tripId, trips.id)).leftJoin(tripGuests, eq(tripMembers.guestId, tripGuests.id)).where(and(eq(tripMembers.tripId, input.tripId), memberIdentity(context), isNull(tripMembers.removedAt), isNull(trips.deletedAt))).limit(1);
       if (!member) throw new ORPCError("NOT_FOUND");
-       const [canvas] = await context.db.select({ object: canvasObjects }).from(canvasObjects).innerJoin(tripMembers, eq(canvasObjects.tripId, tripMembers.tripId)).leftJoin(tripGuests, eq(tripMembers.guestId, tripGuests.id)).where(and(eq(canvasObjects.id, input.canvasObjectId), eq(canvasObjects.tripId, input.tripId), memberIdentity(context), isNull(canvasObjects.deletedAt), isNull(tripMembers.removedAt))).limit(1);
+        const [canvas] = await context.db.select({ object: canvasObjects }).from(canvasObjects).innerJoin(tripMembers, eq(canvasObjects.tripId, tripMembers.tripId)).innerJoin(trips, eq(tripMembers.tripId, trips.id)).leftJoin(tripGuests, eq(tripMembers.guestId, tripGuests.id)).where(and(eq(canvasObjects.id, input.canvasObjectId), eq(canvasObjects.tripId, input.tripId), memberIdentity(context), isNull(canvasObjects.deletedAt), isNull(tripMembers.removedAt), isNull(trips.deletedAt))).limit(1);
       if (!canvas) throw new ORPCError("NOT_FOUND");
       const [existing] = await context.db.select({ id: itineraryItems.id }).from(itineraryItems).where(and(eq(itineraryItems.sourceCanvasObjectId, input.canvasObjectId), isNull(itineraryItems.deletedAt))).limit(1);
         if (existing) {
@@ -310,6 +339,7 @@ export const appRouter = {
               await tx.update(itineraryItems).set({ day: effectiveDay ?? undefined, title: input.title ?? undefined }).where(eq(itineraryItems.id, existing.id));
               await recordActivity(tx, input.tripId, member.id, "itinerary.updated", { itineraryItemId: existing.id, title: input.title ?? "" });
             });
+            publishRealtimeEvent({ tripId: input.tripId, actorMemberId: member.id, type: "itinerary.item.updated", payload: { itemId: existing.id } });
           }
          return { id: existing.id, created: false };
        }
@@ -329,8 +359,9 @@ export const appRouter = {
          if (created) await recordActivity(tx, input.tripId, member.id, "itinerary.created", { itineraryItemId: created.id, title });
          return created;
        });
-      if (!item) throw new ORPCError("INTERNAL_SERVER_ERROR");
-      return { id: item.id, created: true };
+       if (!item) throw new ORPCError("INTERNAL_SERVER_ERROR");
+       publishRealtimeEvent({ tripId: input.tripId, actorMemberId: member.id, type: "itinerary.item.created", payload: { itemId: item.id } });
+       return { id: item.id, created: true };
     }),
   },
   expenses: {

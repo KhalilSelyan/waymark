@@ -50,21 +50,24 @@ export function calculateBalances(amountMinor: number, payerMemberId: string, sh
 export function settlementSuggestions(balances: Balance[]): SettlementSuggestion[] {
   const total = balances.reduce((sum, balance) => sum + balance.netMinor, 0);
   if (!Number.isSafeInteger(total) || total !== 0) throw new Error("Balances must sum to zero.");
-  const debtors = balances.filter((balance) => balance.netMinor < 0).map((balance) => ({ memberId: balance.memberId, amountMinor: -balance.netMinor })).sort((a, b) => a.memberId.localeCompare(b.memberId));
-  const creditors = balances.filter((balance) => balance.netMinor > 0).map((balance) => ({ memberId: balance.memberId, amountMinor: balance.netMinor })).sort((a, b) => a.memberId.localeCompare(b.memberId));
-  const suggestions: SettlementSuggestion[] = [];
-  let debtorIndex = 0;
-  let creditorIndex = 0;
-  while (debtorIndex < debtors.length && creditorIndex < creditors.length) {
-    const debtor = debtors[debtorIndex];
-    const creditor = creditors[creditorIndex];
-    if (!debtor || !creditor) break;
-    const amountMinor = Math.min(debtor.amountMinor, creditor.amountMinor);
-    suggestions.push({ fromMemberId: debtor.memberId, toMemberId: creditor.memberId, amountMinor });
-    debtor.amountMinor -= amountMinor;
-    creditor.amountMinor -= amountMinor;
-    if (debtor.amountMinor === 0) debtorIndex += 1;
-    if (creditor.amountMinor === 0) creditorIndex += 1;
+  const remaining = balances.filter((balance) => balance.netMinor !== 0).map((balance) => ({ ...balance })).sort((a, b) => a.memberId.localeCompare(b.memberId));
+  let best: SettlementSuggestion[] | null = null;
+  function search(state: Balance[], transfers: SettlementSuggestion[]) {
+    const firstIndex = state.findIndex((balance) => balance.netMinor !== 0);
+    if (firstIndex === -1) { if (!best || transfers.length < best.length) best = transfers; return; }
+    if (best && transfers.length >= best.length) return;
+    const first = state[firstIndex]!;
+    for (let index = firstIndex + 1; index < state.length; index += 1) {
+      const other = state[index]!;
+      if (first.netMinor * other.netMinor >= 0) continue;
+      const amountMinor = Math.min(Math.abs(first.netMinor), Math.abs(other.netMinor));
+      const next = state.map((balance) => ({ ...balance }));
+      next[firstIndex]!.netMinor += first.netMinor < 0 ? amountMinor : -amountMinor;
+      next[index]!.netMinor += other.netMinor < 0 ? amountMinor : -amountMinor;
+      const transfer = first.netMinor < 0 ? { fromMemberId: first.memberId, toMemberId: other.memberId, amountMinor } : { fromMemberId: other.memberId, toMemberId: first.memberId, amountMinor };
+      search(next, [...transfers, transfer]);
+    }
   }
-  return suggestions;
+  search(remaining, []);
+  return best ?? [];
 }

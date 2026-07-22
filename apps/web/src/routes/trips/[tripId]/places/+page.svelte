@@ -16,10 +16,16 @@
   let error = $state<string | null>(null);
   let message = $state<string | null>(null);
   let archiveTarget = $state<Place | null>(null);
+  let realtime: EventSource | undefined;
   let form = $state({ name: "", address: "", mapUrl: "", url: "", notes: "", latitude: "", longitude: "" });
   const tripId = $derived(page.params.tripId ?? "");
 
-  onMount(() => { void refresh(); });
+  onMount(() => {
+    void refresh();
+    realtime = new EventSource(`/realtime/trips/${tripId}`);
+    realtime.onmessage = (event) => { if ((JSON.parse(event.data) as { type?: string }).type === "place.changed") void refresh(); };
+    return () => realtime?.close();
+  });
 
   async function refresh() {
     loading = true;

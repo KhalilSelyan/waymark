@@ -27,6 +27,7 @@ describe("settlementSuggestions", () => {
   it("reduces transfers when one debtor covers multiple creditors", () => expect(settlementSuggestions([{ memberId: "a", netMinor: 300 }, { memberId: "b", netMinor: 200 }, { memberId: "c", netMinor: -500 }])).toEqual([{ fromMemberId: "c", toMemberId: "a", amountMinor: 300 }, { fromMemberId: "c", toMemberId: "b", amountMinor: 200 }]));
   it("ignores zero balances and supports an already settled group", () => { expect(settlementSuggestions([{ memberId: "a", netMinor: 0 }])).toEqual([]); expect(settlementSuggestions([])).toEqual([]); });
   it("rejects unbalanced input", () => expect(() => settlementSuggestions([{ memberId: "a", netMinor: 1 }])).toThrow());
+  it("minimizes transfers when greedy matching would not", () => expect(settlementSuggestions([{ memberId: "a", netMinor: -300 }, { memberId: "b", netMinor: -400 }, { memberId: "c", netMinor: 400 }, { memberId: "d", netMinor: 300 }])).toEqual([{ fromMemberId: "a", toMemberId: "d", amountMinor: 300 }, { fromMemberId: "b", toMemberId: "c", amountMinor: 400 }]));
   it("conserves every balance and emits only positive transfers", () => {
     const balances = [{ memberId: "a", netMinor: 800 }, { memberId: "b", netMinor: 200 }, { memberId: "c", netMinor: -600 }, { memberId: "d", netMinor: -400 }];
     const suggestions = settlementSuggestions(balances);

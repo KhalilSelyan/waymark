@@ -40,6 +40,8 @@ Webpage capture uses Playwright's Chromium browser. The included Dockerfile and 
 
 ## Database changes
 
+When using the current `db:push` workflow, run `pnpm run db:check` first and review the schema diff produced by `pnpm run db:push` before applying it. Keep a provider-level backup and record the resulting schema version in the deployment notes.
+
 1. Back up the production database.
 2. Review the generated Drizzle migration.
 3. Run `pnpm run db:migrate` before routing traffic to the new application build.
