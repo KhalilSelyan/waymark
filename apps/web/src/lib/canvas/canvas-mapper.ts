@@ -8,6 +8,13 @@ export function recordToShape(record: CanvasRecord): TLShape {
   }
 
   const persisted = structuredClone(shape) as PersistedShape;
+  if (persisted.type === "image" && persisted.props && typeof persisted.props === "object") {
+    const props = persisted.props as unknown as Record<string, unknown>;
+    const crop = props.crop;
+    if (!crop || typeof crop !== "object" || !("topLeft" in crop) || !("bottomRight" in crop)) {
+      props.crop = { topLeft: { x: 0, y: 0 }, bottomRight: { x: 1, y: 1 } };
+    }
+  }
   persisted.meta = { ...persisted.meta, waymarkObjectId: record.id };
   return persisted;
 }

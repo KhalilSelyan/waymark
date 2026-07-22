@@ -41,7 +41,7 @@ export const POST: RequestHandler = async ({ request, cookies, params }) => {
     const [asset] = await db.insert(assets).values({ id, tripId: params.tripId, uploadedByMemberId: access.member.id, type: "webpage_screenshot", storageKey, sourceUrl: body.url, title, mimeType: "image/png", width: 1280, height: 900, byteSize: screenshot.byteLength }).returning();
     if (!asset) throw new Error("Asset metadata was not created.");
     const shapeId = randomUUID();
-    const shape = { id: `shape:${shapeId}`, type: "image", x: 0, y: 0, rotation: 0, index: "a1", parentId: "page:page", isLocked: false, opacity: 1, meta: { assetId: asset.id }, props: { w: 640, h: 450, assetId: `asset:${asset.id}`, playing: false, url: `/api/assets/${asset.id}`, crop: { x: 0, y: 0, w: 1, h: 1 }, flipX: false, flipY: false, altText: title ?? body.url } };
+    const shape = { id: `shape:${shapeId}`, type: "image", x: 0, y: 0, rotation: 0, index: "a1", parentId: "page:page", isLocked: false, opacity: 1, meta: { assetId: asset.id }, props: { w: 640, h: 450, assetId: `asset:${asset.id}`, playing: false, url: `/api/assets/${asset.id}`, crop: { topLeft: { x: 0, y: 0 }, bottomRight: { x: 1, y: 1 } }, flipX: false, flipY: false, altText: title ?? body.url } };
     const [object] = await db.insert(canvasObjects).values({ tripId: params.tripId, createdByMemberId: access.member.id, type: "image", x: 0, y: 0, width: 640, height: 450, rotation: 0, zIndex: 0, data: { shape } }).returning({ id: canvasObjects.id });
     return json({ asset, canvasObjectId: object?.id, shape }, { status: 201 });
   } catch (caught) {
