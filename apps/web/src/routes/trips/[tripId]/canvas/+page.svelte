@@ -3,6 +3,7 @@
   import { type Editor, type TLShape } from "tldraw";
   import { Button } from "$lib/components/ui/button/index.js";
   import { page } from "$app/state";
+  import { browser } from "$app/environment";
   import { client } from "$lib/orpc";
   import TldrawCanvas from "$lib/canvas/TldrawCanvas.svelte";
   import { loadCanvas, createCanvasObject, updateCanvasObject, removeCanvasObject } from "$lib/canvas/canvas-persistence";
@@ -205,7 +206,7 @@
     if (reconnectTimer) clearTimeout(reconnectTimer);
     unsubscribe?.();
     realtime?.close();
-    document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    if (browser) document.removeEventListener("fullscreenchange", handleFullscreenChange);
   });
 
   function handleFullscreenChange() {
@@ -221,6 +222,7 @@
   }
 
   $effect(() => {
+    if (!browser) return;
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
   });

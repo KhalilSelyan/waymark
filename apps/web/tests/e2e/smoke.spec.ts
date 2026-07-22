@@ -23,3 +23,12 @@ test("dashboard remains usable on a narrow viewport", async ({ page }) => {
   await page.keyboard.press("Tab");
   await expect(page.locator(":focus-visible")).toBeVisible();
 });
+
+test("authenticated user can create a trip", async ({ page }) => {
+  await page.goto("/trips/new");
+  await page.getByLabel("Trip name").fill(`E2E trip ${Date.now()}`);
+  await page.getByLabel("Destination").fill("Lisbon");
+  await page.getByLabel("Currency").fill("EUR");
+  await page.getByRole("button", { name: "Create trip" }).click();
+  await expect(page.getByText("Shared planning board")).toBeVisible();
+});
