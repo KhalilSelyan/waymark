@@ -4,7 +4,7 @@ Waymark is a realtime group trip planner that brings itinerary planning and shar
 
 Plan the trip together on a freeform canvas, organize it day by day, collect places and activities, and track shared costs with Tricount-style balances and settlement suggestions.
 
-> Waymark is in early development. The repository currently contains the project scaffold; the product features below describe the planned MVP.
+> Waymark is in early development. The core planning, itinerary, expense, realtime, activity, security, and UX MVP slices are implemented; deployment hardening and full authenticated E2E coverage are still in progress.
 
 ## Product Direction
 
@@ -205,7 +205,7 @@ The initial implementation sequence is:
 
 ## Status
 
-Waymark is currently at the scaffold stage. Product and architecture decisions are being shaped before the first feature milestone is implemented. The local PostgreSQL and environment setup are now documented and ready for feature work.
+Waymark is in active MVP development. The app currently includes authenticated trip workspaces, guest invites, a persistent tldraw canvas, places, itinerary planning, expense splitting, balances, settlement suggestions, realtime canvas updates, presence, activity history, security hardening, and Playwright smoke coverage. Full authenticated E2E journey coverage and production deployment validation remain open.
 
 The web app uses shadcn-svelte locally under `apps/web/src/lib/components/ui/`. The current setup uses the Zinc base theme; add components from the repository root with commands such as `pnpm --filter web exec shadcn-svelte add button`.
 
