@@ -15,6 +15,8 @@ Configure these values through the deployment platform secret manager, never in 
 
 If storage variables are omitted, the app uses local `.data/assets` storage. Use R2 or another persistent S3-compatible provider for production.
 
+For R2, create the bucket and a bucket-scoped API token in Cloudflare, then set the five `STORAGE_*` variables in the deployment secret manager. No R2 credentials belong in this repository.
+
 ## Build and start
 
 ```bash
