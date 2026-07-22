@@ -30,17 +30,17 @@
 
 <style>
   :global(.tl-container) {
-    --color-low: #0a0e13;
-    --color-muted-1: #121820;
-    --color-muted-2: #1a232d;
-    --color-text: #e5edf5;
-    --color-text-2: #9aaabd;
+    --color-low: #0a0a0a;
+    --color-muted-1: #141416;
+    --color-muted-2: #1b1b1e;
+    --color-text: #f5f5f5;
+    --color-text-2: #a3a3a3;
     --color-selected: #7dd3fc;
   }
 
   :global(.tl-background) {
-    background-color: #0a0e13 !important;
-    background-image: radial-gradient(circle, rgba(125, 211, 252, 0.16) 1px, transparent 1px) !important;
+    background-color: #0e0e11 !important;
+    background-image: linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px) !important;
     background-size: 24px 24px !important;
   }
 </style>
