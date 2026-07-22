@@ -1,7 +1,7 @@
 import type { RouterClient } from "@orpc/server";
 import { z } from "zod";
 import { and, desc, eq, isNull, lt } from "drizzle-orm";
-import { activityEvents, canvasObjects, expenseShares, expenses, itineraryItems, places, settlements, trips, tripMembers } from "@waymark/db/schema";
+import { activityEvents, assets, canvasObjects, expenseShares, expenses, itineraryItems, places, settlements, trips, tripMembers } from "@waymark/db/schema";
 import { ORPCError } from "@orpc/server";
 
 import { protectedProcedure, publicProcedure } from "../index";
@@ -151,13 +151,14 @@ export const appRouter = {
        const [place] = await context.db.select().from(places).where(and(eq(places.id, input.placeId), eq(places.tripId, input.tripId), isNull(places.deletedAt))).limit(1);
        if (!place) throw new ORPCError("NOT_FOUND");
        const shapeId = `shape:${crypto.randomUUID()}`;
-       const candidates = await context.db.select().from(canvasObjects).where(eq(canvasObjects.tripId, input.tripId)).orderBy(desc(canvasObjects.updatedAt));
+        const [sourceAsset] = place.url ? await context.db.select({ id: assets.id }).from(assets).where(and(eq(assets.tripId, input.tripId), eq(assets.sourceUrl, place.url))).orderBy(desc(assets.createdAt)).limit(1) : [];
+        const candidates = await context.db.select().from(canvasObjects).where(eq(canvasObjects.tripId, input.tripId)).orderBy(desc(canvasObjects.updatedAt));
        const original = candidates.find((candidate) => {
          const data = candidate.data && typeof candidate.data === "object" ? candidate.data as Record<string, unknown> : null;
          const shape = data?.shape && typeof data.shape === "object" ? data.shape as Record<string, unknown> : null;
          const meta = shape?.meta && typeof shape.meta === "object" ? shape.meta as Record<string, unknown> : null;
          const props = shape?.props && typeof shape.props === "object" ? shape.props as Record<string, unknown> : null;
-         return meta?.waymarkRecordId === place.id || (shape?.type === "webpage-card" && props?.url === place.url);
+         return meta?.waymarkRecordId === place.id || (shape?.type === "webpage-card" && props?.url === place.url) || (sourceAsset && meta?.assetId === sourceAsset.id);
        });
        const originalData = original?.data && typeof original.data === "object" ? original.data as Record<string, unknown> : null;
        const originalShape = originalData?.shape && typeof originalData.shape === "object" ? originalData.shape as Record<string, unknown> : null;
