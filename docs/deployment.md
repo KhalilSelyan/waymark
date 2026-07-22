@@ -19,6 +19,8 @@ For R2, create the bucket and a bucket-scoped API token in Cloudflare, then set 
 
 ## Build and start
 
+The repository includes a root `nixpacks.toml` for Node 24-based platforms such as Railway. It installs the workspace, builds from the repository root, and starts the web package with its Node adapter.
+
 ```bash
 pnpm install --frozen-lockfile
 pnpm run db:migrate
@@ -26,7 +28,7 @@ pnpm run build
 pnpm --filter web preview --host 0.0.0.0
 ```
 
-The Node adapter produces a standalone server in `build/`. Start it with `node build`, providing the environment variables above. The deployment must expose `/health` as its readiness check.
+The Node adapter produces a standalone server in `apps/web/build/`. Start it with `pnpm --filter web start`, providing the environment variables above. The deployment must expose `/health` as its readiness check.
 
 ## Database changes
 

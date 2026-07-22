@@ -1,0 +1,12 @@
+[phases.setup]
+nixPkgs = ['nodejs_24', 'nodePackages.pnpm']
+cmds = ['corepack enable']
+
+[phases.install]
+cmds = ['pnpm install --frozen-lockfile']
+
+[phases.build]
+cmds = ['pnpm run build']
+
+[start]
+cmd = 'pnpm --filter web start'
