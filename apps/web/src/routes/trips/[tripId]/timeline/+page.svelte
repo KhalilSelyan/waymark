@@ -72,7 +72,7 @@
   async function save() {
     saving = true;
     try {
-      const input = { day: form.day, title: form.title, placeId: form.placeId || null, startsAt: iso(form.startsAt), endsAt: iso(form.endsAt), notes: form.notes || null, status: form.status, sortOrder: editingId ? (rows.find((row) => row.item.id === editingId)?.item.sortOrder ?? 0) : rows.filter((row) => row.item.day === form.day).length };
+      const input = { day: form.day || null, title: form.title, placeId: form.placeId || null, startsAt: iso(form.startsAt), endsAt: iso(form.endsAt), notes: form.notes || null, status: form.status, sortOrder: editingId ? (rows.find((row) => row.item.id === editingId)?.item.sortOrder ?? 0) : rows.filter((row) => row.item.day === form.day).length };
       if (editingId) await client.itinerary.update({ id: editingId, ...input }); else await client.itinerary.create({ tripId, ...input });
       reset(); await refresh();
     } catch (caught) { error = caught instanceof Error ? caught.message : "Itinerary item could not be saved."; }
