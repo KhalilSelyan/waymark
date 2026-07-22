@@ -6,7 +6,7 @@ cmds = ['corepack enable']
 cmds = ['pnpm install --frozen-lockfile']
 
 [phases.build]
-cmds = ["printf '%s\\n' 'DATABASE_URL=postgresql://build:build@localhost:5432/build' 'BETTER_AUTH_SECRET=build-only-secret-012345678901234567890123456789' 'BETTER_AUTH_URL=https://build.invalid' 'CORS_ORIGIN=https://build.invalid' 'GOOGLE_CLIENT_ID=build-only-client' 'GOOGLE_CLIENT_SECRET=build-only-secret' > apps/web/.env && pnpm run build && rm apps/web/.env"]
+cmds = ["pnpm --filter web exec playwright install --with-deps chromium", "printf '%s\\n' 'DATABASE_URL=postgresql://build:build@localhost:5432/build' 'BETTER_AUTH_SECRET=build-only-secret-012345678901234567890123456789' 'BETTER_AUTH_URL=https://build.invalid' 'CORS_ORIGIN=https://build.invalid' 'GOOGLE_CLIENT_ID=build-only-client' 'GOOGLE_CLIENT_SECRET=build-only-secret' > apps/web/.env && pnpm run build && rm apps/web/.env"]
 
 [start]
 cmd = 'pnpm --filter web start'

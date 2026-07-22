@@ -32,6 +32,8 @@ pnpm --filter web preview --host 0.0.0.0
 
 The Node adapter produces a standalone server in `apps/web/build/`. The Docker image starts it directly with `node apps/web/build`; a non-Docker deployment can use `pnpm --filter web start`. The deployment must expose `/health` as its readiness check.
 
+Webpage capture uses Playwright's Chromium browser. The included Dockerfile and Nixpacks configuration install Chromium and its system dependencies during the build; custom deployment pipelines must run `pnpm --filter web exec playwright install --with-deps chromium` as part of their image build.
+
 ## Database changes
 
 1. Back up the production database.

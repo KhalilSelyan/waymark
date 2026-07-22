@@ -18,9 +18,10 @@ export const POST: RequestHandler = async ({ request, cookies, params }) => {
   if (typeof body?.url !== "string") throw error(400, "A webpage URL is required.");
   try { await resolveSafeUrl(body.url); } catch { throw error(400, "This webpage URL is not allowed."); }
 
-  const browser = await chromium.launch({ headless: true });
+  let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
   let storageKey = "";
   try {
+    browser = await chromium.launch({ headless: true });
     const context = await browser.newContext({ javaScriptEnabled: true, serviceWorkers: "block", viewport: { width: 1280, height: 900 } });
     const page = await context.newPage();
     await page.route("**/*", async (route) => {
@@ -54,6 +55,7 @@ export const POST: RequestHandler = async ({ request, cookies, params }) => {
     return json({ asset, canvasObjectId: object?.id, shapes: [object ? { ...shape, meta: { ...shape.meta, waymarkObjectId: object.id } } : shape] }, { status: 201 });
   } catch (caught) {
     if (storageKey) await removeAsset(storageKey);
+    console.error("Webpage capture failed", caught);
     throw error(502, caught instanceof Error ? "Webpage capture failed." : "Webpage capture failed.");
-  } finally { await browser.close(); }
+  } finally { await browser?.close(); }
 };
