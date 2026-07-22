@@ -42,13 +42,13 @@ export const POST: RequestHandler = async ({ request, cookies, params }) => {
       ]);
     }, undefined);
     await page.waitForTimeout(350);
-    const screenshot = await page.screenshot({ type: "png", fullPage: false });
+    const screenshot = await page.screenshot({ type: "jpeg", quality: 82, fullPage: false });
     if (screenshot.byteLength > maxResponseBytes) throw new Error("Screenshot too large.");
     const id = randomUUID();
     storageKey = `trips/${params.tripId}/assets/${id}`;
     await putAsset(storageKey, screenshot);
     const title = await page.title().catch(() => null);
-    const [asset] = await db.insert(assets).values({ id, tripId: params.tripId, uploadedByMemberId: access.member.id, type: "webpage_screenshot", storageKey, sourceUrl: body.url, title, mimeType: "image/png", width: 1280, height: 900, byteSize: screenshot.byteLength }).returning();
+    const [asset] = await db.insert(assets).values({ id, tripId: params.tripId, uploadedByMemberId: access.member.id, type: "webpage_screenshot", storageKey, sourceUrl: body.url, title, mimeType: "image/jpeg", width: 1280, height: 900, byteSize: screenshot.byteLength }).returning();
     if (!asset) throw new Error("Asset metadata was not created.");
     const shape = { id: `shape:${randomUUID()}`, type: "webpage-card", x: 0, y: 0, rotation: 0, index: "a1", parentId: "page:page", isLocked: false, opacity: 1, meta: { assetId: asset.id, sourceUrl: body.url }, props: { w: 420, h: 430, title: title ?? "Captured webpage", url: body.url, screenshotUrl: `/api/assets/${asset.id}` } };
     const [object] = await db.insert(canvasObjects).values({ tripId: params.tripId, createdByMemberId: access.member.id, type: "webpage_screenshot", x: 0, y: 0, width: 420, height: 430, rotation: 0, zIndex: 0, data: { shape, asset: { id: asset.id, mimeType: asset.mimeType, width: asset.width, height: asset.height, name: asset.title } } }).returning({ id: canvasObjects.id });

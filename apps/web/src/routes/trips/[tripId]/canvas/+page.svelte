@@ -89,8 +89,8 @@
           versions.set(id, updated.version);
         } else {
           const created = await createCanvasObject(client, tripId, shape);
-          versions.set(created.id, created.version);
-          editor?.updateShape({ ...shape, meta: { ...shape.meta, waymarkObjectId: created.id } });
+          versions.set(created.object.id, created.object.version);
+          editor?.updateShape({ ...created.shape, meta: { ...created.shape.meta, waymarkObjectId: created.object.id } });
         }
         if (pending.get(shape.id) === shape) pending.delete(shape.id);
       }
