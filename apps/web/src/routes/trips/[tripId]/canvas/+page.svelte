@@ -22,6 +22,8 @@
   let reconnectAttempt = 0;
   let realtimeStatus = $state<"connected" | "reconnecting">("reconnecting");
   let onlineMembers = $state<{ memberId: string; displayName: string; color: string }[]>([]);
+  let remoteCursors = $state(new Map<string, { x: number; y: number; displayName: string; color: string }>());
+  let lastCursorSent = 0;
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
   let unsubscribe: (() => void) | undefined;
   const versions = new Map<string, number>();
@@ -137,7 +139,7 @@
     error = caught instanceof Error ? caught.message : "Canvas changes could not be saved.";
   }
 
-  type RealtimeMessage = { type: string; objects?: CanvasRecord[]; presence?: { memberId: string; displayName: string; color: string }[]; actorMemberId?: string; payload?: { objectId?: string; objectVersion?: number; data?: Record<string, unknown>; displayName?: string; color?: string } };
+  type RealtimeMessage = { type: string; objects?: CanvasRecord[]; presence?: { memberId: string; displayName: string; color: string }[]; actorMemberId?: string; payload?: { objectId?: string; objectVersion?: number; data?: Record<string, unknown>; displayName?: string; color?: string; x?: number; y?: number } };
   function connectRealtime() {
     realtime?.close();
     realtime = new EventSource(`/realtime/trips/${tripId}`);
@@ -159,6 +161,10 @@
     if (event.presence) onlineMembers = event.presence;
     if (event.type === "presence.joined" && event.actorMemberId && event.payload?.displayName) onlineMembers = [...onlineMembers.filter((member) => member.memberId !== event.actorMemberId), { memberId: event.actorMemberId, displayName: event.payload.displayName, color: event.payload.color ?? "" }];
     if (event.type === "presence.left" && event.actorMemberId) onlineMembers = onlineMembers.filter((member) => member.memberId !== event.actorMemberId);
+    if (event.type === "presence.cursor.updated" && event.actorMemberId && event.payload?.x !== undefined && event.payload?.y !== undefined) {
+      const member = onlineMembers.find((candidate) => candidate.memberId === event.actorMemberId);
+      if (member) remoteCursors = new Map(remoteCursors).set(event.actorMemberId, { x: event.payload.x, y: event.payload.y, displayName: member.displayName, color: member.color });
+    }
     if (event.type === "snapshot" && event.objects) {
       const incoming = new Map(event.objects.map((record) => [record.id, record]));
       for (const existing of editor.getCurrentPageShapes()) {
@@ -185,6 +191,13 @@
     const shape = shapeData as TLShape;
     if (existing) editor.updateShape({ ...shape, id: existing.id });
     else editor.createShapes([shape]);
+  }
+
+  function broadcastCursor(event: PointerEvent) {
+    const now = Date.now();
+    if (now - lastCursorSent < 75) return;
+    lastCursorSent = now;
+    void fetch(`/realtime/trips/${tripId}/cursor`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ x: event.clientX, y: event.clientY }) });
   }
 
   onDestroy(() => {
@@ -244,7 +257,8 @@
   {#if error}
     <div class="border-b border-destructive/30 bg-destructive/10 px-4 py-2 text-sm text-destructive" role="alert">{error}</div>
   {/if}
-  <div class="min-h-0 flex-1">
+  <div class="relative min-h-0 flex-1" onpointermove={broadcastCursor}>
     <TldrawCanvas onEditorMount={initialize} />
+    {#each [...remoteCursors] as [memberId, cursor] (memberId)}<span class="pointer-events-none absolute rounded bg-background/90 px-1.5 py-0.5 text-[10px] shadow" style={`left:${cursor.x}px;top:${cursor.y}px;color:${cursor.color}`}>{cursor.displayName}</span>{/each}
   </div>
 </section>
