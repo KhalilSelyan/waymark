@@ -9,8 +9,11 @@ Configure these values through the deployment platform secret manager, never in 
 - `BETTER_AUTH_URL`: public application URL.
 - `CORS_ORIGIN`: the same public application origin.
 - `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`: Google OAuth credentials.
+- `STORAGE_ENDPOINT`, `STORAGE_REGION`, `STORAGE_BUCKET`, `STORAGE_ACCESS_KEY_ID`, and `STORAGE_SECRET_ACCESS_KEY`: optional S3-compatible storage configuration. For Cloudflare R2, use the account S3 endpoint and `auto` region.
 
 `WAYMARK_E2E` must not be enabled in production.
+
+If storage variables are omitted, the app uses local `.data/assets` storage. Use R2 or another persistent S3-compatible provider for production.
 
 ## Build and start
 
