@@ -26,4 +26,21 @@
   onDestroy(() => root?.unmount());
 </script>
 
-<div bind:this={host} class="h-full min-h-0 w-full [&_.tl-background]!:bg-background"></div>
+<div bind:this={host} class="h-full min-h-0 w-full"></div>
+
+<style>
+  :global(.tl-container) {
+    --color-low: #0a0e13;
+    --color-muted-1: #121820;
+    --color-muted-2: #1a232d;
+    --color-text: #e5edf5;
+    --color-text-2: #9aaabd;
+    --color-selected: #7dd3fc;
+  }
+
+  :global(.tl-background) {
+    background-color: #0a0e13 !important;
+    background-image: radial-gradient(circle, rgba(125, 211, 252, 0.16) 1px, transparent 1px) !important;
+    background-size: 24px 24px !important;
+  }
+</style>
