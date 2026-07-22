@@ -2,6 +2,7 @@ FROM node:24-bookworm-slim AS build
 
 WORKDIR /app
 RUN corepack enable
+ENV PLAYWRIGHT_BROWSERS_PATH=0
 
 COPY . .
 RUN pnpm install --frozen-lockfile && pnpm --filter web exec playwright install --with-deps chromium
@@ -13,6 +14,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=3000
+ENV PLAYWRIGHT_BROWSERS_PATH=0
 
 COPY --from=build /app /app
 
