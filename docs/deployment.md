@@ -30,7 +30,7 @@ pnpm run build
 pnpm --filter web preview --host 0.0.0.0
 ```
 
-The Node adapter produces a standalone server in `apps/web/build/`. Start it with `pnpm --filter web start`, providing the environment variables above. The deployment must expose `/health` as its readiness check.
+The Node adapter produces a standalone server in `apps/web/build/`. The Docker image starts it directly with `node apps/web/build`; a non-Docker deployment can use `pnpm --filter web start`. The deployment must expose `/health` as its readiness check.
 
 ## Database changes
 
