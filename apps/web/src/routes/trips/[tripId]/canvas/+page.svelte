@@ -307,7 +307,7 @@
 
 <svelte:window onpointerdown={dismissContextMenu} onkeydown={handleCanvasKeydown} />
 
-<section bind:this={canvasSection} class="flex h-[calc(100svh-9rem)] min-h-[32rem] flex-col overflow-hidden border-y border-border bg-card fullscreen:h-svh fullscreen:rounded-none">
+<section bind:this={canvasSection} class="mb-8 flex h-[calc(100svh-11rem)] min-h-[32rem] flex-col overflow-hidden border-y border-border bg-card sm:h-[calc(100svh-9rem)] lg:h-[calc(100svh-8rem)] fullscreen:mb-0 fullscreen:h-svh fullscreen:rounded-none">
   <div class="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
     <div>
       <p class="font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Shared planning board</p>
