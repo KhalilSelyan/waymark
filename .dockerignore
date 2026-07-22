@@ -1,0 +1,14 @@
+.git
+.github
+node_modules
+**/node_modules
+.svelte-kit
+apps/web/build
+apps/web/.data
+dist
+coverage
+playwright-report
+test-results
+*.log
+.env
+**/.env

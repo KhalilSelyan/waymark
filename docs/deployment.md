@@ -21,6 +21,8 @@ For R2, create the bucket and a bucket-scoped API token in Cloudflare, then set 
 
 The repository includes a root `nixpacks.toml` for Node 24-based platforms such as Railway. It installs the workspace, builds from the repository root, and starts the web package with its Node adapter.
 
+For Coolify hosts where the Nixpacks bootstrap cannot download its Nixpkgs snapshot, the repository also includes a root `Dockerfile`. Set the Coolify build pack to Dockerfile, leave the Dockerfile path as `Dockerfile`, and expose container port `3000`.
+
 ```bash
 pnpm install --frozen-lockfile
 pnpm run db:migrate
