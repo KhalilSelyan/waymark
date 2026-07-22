@@ -4,6 +4,7 @@
   import { createRoot, type Root } from "react-dom/client";
   import { Tldraw, type Editor } from "tldraw";
   import "tldraw/tldraw.css";
+  import { env } from "@waymark/env/web";
   import { WebpageCardShapeUtil } from "./WebpageCardShapeUtil";
 
   let { onEditorMount }: { onEditorMount: (editor: Editor) => void | Promise<void> } = $props();
@@ -15,6 +16,7 @@
     root = createRoot(host);
     root.render(
       React.createElement(Tldraw, {
+        licenseKey: env.VITE_TLDRAW_LICENSE_KEY,
         shapeUtils: [WebpageCardShapeUtil],
         onMount: (editor: Editor) => {
           editor.user.updateUserPreferences({ colorScheme: "dark" });
