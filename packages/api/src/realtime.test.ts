@@ -12,4 +12,9 @@ describe("realtime contract", () => {
   it("accepts acknowledgements with explicit outcomes", () => {
     expect(realtimeAckSchema.parse({ protocolVersion: 1, clientMessageId: "client-1", accepted: false, streamVersion: 3, reason: "stale" }).reason).toBe("stale");
   });
+
+  it("rejects malformed event envelopes and acknowledgements", () => {
+    expect(() => realtimeEventSchema.parse({ ...envelope, eventId: "not-a-uuid", type: "presence.joined", payload: { displayName: "A", color: "red" } })).toThrow();
+    expect(() => realtimeAckSchema.parse({ protocolVersion: 1, clientMessageId: "", accepted: true, streamVersion: 0 })).toThrow();
+  });
 });

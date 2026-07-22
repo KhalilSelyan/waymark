@@ -110,7 +110,7 @@ export const appRouter = {
       return object;
     }),
     update: protectedProcedure.input(z.object({ id: z.string().uuid(), version: z.number().int(), type: z.string().min(1).max(64), x: z.number(), y: z.number(), width: z.number().nullable().optional(), height: z.number().nullable().optional(), rotation: z.number(), zIndex: z.number().int(), data: z.record(z.string(), z.unknown()) })).handler(async ({ context, input }) => {
-       const [current] = await context.db.select({ object: canvasObjects, memberId: tripMembers.id }).from(canvasObjects).innerJoin(tripMembers, eq(canvasObjects.tripId, tripMembers.tripId)).leftJoin(tripGuests, eq(tripMembers.guestId, tripGuests.id)).where(and(eq(canvasObjects.id, input.id), memberIdentity(context), isNull(canvasObjects.deletedAt), isNull(tripMembers.removedAt))).limit(1);
+       const [current] = await context.db.select({ object: canvasObjects, memberId: tripMembers.id }).from(canvasObjects).innerJoin(tripMembers, eq(canvasObjects.tripId, tripMembers.tripId)).innerJoin(trips, eq(tripMembers.tripId, trips.id)).leftJoin(tripGuests, eq(tripMembers.guestId, tripGuests.id)).where(and(eq(canvasObjects.id, input.id), memberIdentity(context), isNull(canvasObjects.deletedAt), isNull(tripMembers.removedAt), isNull(trips.deletedAt))).limit(1);
       if (!current) throw new ORPCError("NOT_FOUND");
       if (current.object.version !== input.version) throw new ORPCError("CONFLICT");
        const result = await context.db.transaction(async (tx) => {
@@ -137,7 +137,7 @@ export const appRouter = {
        return updated;
     }),
     remove: protectedProcedure.input(z.object({ id: z.string().uuid(), version: z.number().int() })).handler(async ({ context, input }) => {
-       const [current] = await context.db.select({ object: canvasObjects, memberId: tripMembers.id }).from(canvasObjects).innerJoin(tripMembers, eq(canvasObjects.tripId, tripMembers.tripId)).leftJoin(tripGuests, eq(tripMembers.guestId, tripGuests.id)).where(and(eq(canvasObjects.id, input.id), memberIdentity(context), isNull(canvasObjects.deletedAt), isNull(tripMembers.removedAt))).limit(1);
+       const [current] = await context.db.select({ object: canvasObjects, memberId: tripMembers.id }).from(canvasObjects).innerJoin(tripMembers, eq(canvasObjects.tripId, tripMembers.tripId)).innerJoin(trips, eq(tripMembers.tripId, trips.id)).leftJoin(tripGuests, eq(tripMembers.guestId, tripGuests.id)).where(and(eq(canvasObjects.id, input.id), memberIdentity(context), isNull(canvasObjects.deletedAt), isNull(tripMembers.removedAt), isNull(trips.deletedAt))).limit(1);
       if (!current) throw new ORPCError("NOT_FOUND");
       if (current.object.version !== input.version) throw new ORPCError("CONFLICT");
        const removed = await context.db.transaction(async (tx) => {
@@ -187,7 +187,7 @@ export const appRouter = {
       return place;
     }),
     update: protectedProcedure.input(z.object({ id: z.string().uuid(), name: z.string().trim().min(1).max(200), address: z.string().trim().max(500).nullable().optional(), mapUrl: httpUrl.nullable().optional(), url: httpUrl.nullable().optional(), latitude: z.string().max(32).nullable().optional(), longitude: z.string().max(32).nullable().optional(), notes: z.string().trim().max(5000).nullable().optional() })).handler(async ({ context, input }) => {
-       const [current] = await context.db.select({ place: places, memberId: tripMembers.id }).from(places).innerJoin(tripMembers, eq(places.tripId, tripMembers.tripId)).leftJoin(tripGuests, eq(tripMembers.guestId, tripGuests.id)).where(and(eq(places.id, input.id), memberIdentity(context), isNull(places.deletedAt), isNull(tripMembers.removedAt))).limit(1);
+        const [current] = await context.db.select({ place: places, memberId: tripMembers.id }).from(places).innerJoin(tripMembers, eq(places.tripId, tripMembers.tripId)).innerJoin(trips, eq(tripMembers.tripId, trips.id)).leftJoin(tripGuests, eq(tripMembers.guestId, tripGuests.id)).where(and(eq(places.id, input.id), memberIdentity(context), isNull(places.deletedAt), isNull(tripMembers.removedAt), isNull(trips.deletedAt))).limit(1);
       if (!current) throw new ORPCError("NOT_FOUND");
        const place = await context.db.transaction(async (tx) => {
          const [updated] = await tx.update(places).set({ name: input.name, address: input.address ?? null, mapUrl: input.mapUrl ?? null, url: input.url ?? null, latitude: input.latitude ?? null, longitude: input.longitude ?? null, notes: input.notes ?? null }).where(eq(places.id, input.id)).returning();
@@ -197,7 +197,7 @@ export const appRouter = {
       return place;
     }),
     archive: protectedProcedure.input(z.object({ id: z.string().uuid() })).handler(async ({ context, input }) => {
-       const [current] = await context.db.select({ place: places, memberId: tripMembers.id }).from(places).innerJoin(tripMembers, eq(places.tripId, tripMembers.tripId)).leftJoin(tripGuests, eq(tripMembers.guestId, tripGuests.id)).where(and(eq(places.id, input.id), memberIdentity(context), isNull(places.deletedAt), isNull(tripMembers.removedAt))).limit(1);
+        const [current] = await context.db.select({ place: places, memberId: tripMembers.id }).from(places).innerJoin(tripMembers, eq(places.tripId, tripMembers.tripId)).innerJoin(trips, eq(tripMembers.tripId, trips.id)).leftJoin(tripGuests, eq(tripMembers.guestId, tripGuests.id)).where(and(eq(places.id, input.id), memberIdentity(context), isNull(places.deletedAt), isNull(tripMembers.removedAt), isNull(trips.deletedAt))).limit(1);
       if (!current) throw new ORPCError("NOT_FOUND");
        const place = await context.db.transaction(async (tx) => {
          const [archived] = await tx.update(places).set({ deletedAt: new Date() }).where(eq(places.id, input.id)).returning();
@@ -236,7 +236,7 @@ export const appRouter = {
      saveCanvasObjectAsPlace: protectedProcedure.input(z.object({ tripId: z.string().uuid(), canvasObjectId: z.string().uuid(), name: z.string().trim().min(1).max(200), address: z.string().trim().max(500).nullable().optional(), url: httpUrl.nullable().optional(), notes: z.string().trim().max(5000).nullable().optional() })).handler(async ({ context, input }) => {
        const [member] = await context.db.select({ id: tripMembers.id, startsOn: trips.startsOn }).from(tripMembers).innerJoin(trips, eq(tripMembers.tripId, trips.id)).leftJoin(tripGuests, eq(tripMembers.guestId, tripGuests.id)).where(and(eq(tripMembers.tripId, input.tripId), memberIdentity(context), isNull(tripMembers.removedAt), isNull(trips.deletedAt))).limit(1);
        if (!member) throw new ORPCError("NOT_FOUND");
-        const [canvas] = await context.db.select({ object: canvasObjects }).from(canvasObjects).innerJoin(tripMembers, eq(canvasObjects.tripId, tripMembers.tripId)).leftJoin(tripGuests, eq(tripMembers.guestId, tripGuests.id)).where(and(eq(canvasObjects.id, input.canvasObjectId), eq(canvasObjects.tripId, input.tripId), memberIdentity(context), isNull(canvasObjects.deletedAt), isNull(tripMembers.removedAt))).limit(1);
+        const [canvas] = await context.db.select({ object: canvasObjects }).from(canvasObjects).innerJoin(tripMembers, eq(canvasObjects.tripId, tripMembers.tripId)).innerJoin(trips, eq(tripMembers.tripId, trips.id)).leftJoin(tripGuests, eq(tripMembers.guestId, tripGuests.id)).where(and(eq(canvasObjects.id, input.canvasObjectId), eq(canvasObjects.tripId, input.tripId), memberIdentity(context), isNull(canvasObjects.deletedAt), isNull(tripMembers.removedAt), isNull(trips.deletedAt))).limit(1);
        if (!canvas) throw new ORPCError("NOT_FOUND");
        const data = canvas.object.data && typeof canvas.object.data === "object" ? canvas.object.data as Record<string, unknown> : {};
        const shape = data.shape && typeof data.shape === "object" ? data.shape as Record<string, unknown> : null;
@@ -272,7 +272,7 @@ export const appRouter = {
       return item;
     }),
     update: protectedProcedure.input(z.object({ id: z.string().uuid(), day: z.string().date().nullable().optional(), title: z.string().trim().min(1).max(200), placeId: z.string().uuid().nullable().optional(), startsAt: z.string().datetime({ offset: true }).nullable().optional(), endsAt: z.string().datetime({ offset: true }).nullable().optional(), notes: z.string().trim().max(5000).nullable().optional(), status: z.enum(["idea", "planned", "done"]), sortOrder: z.number().int() })).handler(async ({ context, input }) => {
-       const [current] = await context.db.select({ item: itineraryItems, memberId: tripMembers.id }).from(itineraryItems).innerJoin(tripMembers, eq(itineraryItems.tripId, tripMembers.tripId)).leftJoin(tripGuests, eq(tripMembers.guestId, tripGuests.id)).where(and(eq(itineraryItems.id, input.id), memberIdentity(context), isNull(itineraryItems.deletedAt), isNull(tripMembers.removedAt))).limit(1);
+        const [current] = await context.db.select({ item: itineraryItems, memberId: tripMembers.id }).from(itineraryItems).innerJoin(tripMembers, eq(itineraryItems.tripId, tripMembers.tripId)).innerJoin(trips, eq(tripMembers.tripId, trips.id)).leftJoin(tripGuests, eq(tripMembers.guestId, tripGuests.id)).where(and(eq(itineraryItems.id, input.id), memberIdentity(context), isNull(itineraryItems.deletedAt), isNull(tripMembers.removedAt), isNull(trips.deletedAt))).limit(1);
       if (!current) throw new ORPCError("NOT_FOUND");
        const item = await context.db.transaction(async (tx) => {
          const [updated] = await tx.update(itineraryItems).set({ day: input.day, title: input.title, placeId: input.placeId ?? null, startsAt: input.startsAt ? new Date(input.startsAt) : null, endsAt: input.endsAt ? new Date(input.endsAt) : null, notes: input.notes ?? null, status: input.status, sortOrder: input.sortOrder }).where(eq(itineraryItems.id, input.id)).returning();
@@ -285,7 +285,7 @@ export const appRouter = {
       return item;
     }),
     archive: protectedProcedure.input(z.object({ id: z.string().uuid() })).handler(async ({ context, input }) => {
-       const [current] = await context.db.select({ item: itineraryItems, memberId: tripMembers.id }).from(itineraryItems).innerJoin(tripMembers, eq(itineraryItems.tripId, tripMembers.tripId)).leftJoin(tripGuests, eq(tripMembers.guestId, tripGuests.id)).where(and(eq(itineraryItems.id, input.id), memberIdentity(context), isNull(itineraryItems.deletedAt), isNull(tripMembers.removedAt))).limit(1);
+        const [current] = await context.db.select({ item: itineraryItems, memberId: tripMembers.id }).from(itineraryItems).innerJoin(tripMembers, eq(itineraryItems.tripId, tripMembers.tripId)).innerJoin(trips, eq(tripMembers.tripId, trips.id)).leftJoin(tripGuests, eq(tripMembers.guestId, tripGuests.id)).where(and(eq(itineraryItems.id, input.id), memberIdentity(context), isNull(itineraryItems.deletedAt), isNull(tripMembers.removedAt), isNull(trips.deletedAt))).limit(1);
       if (!current) throw new ORPCError("NOT_FOUND");
        const item = await context.db.transaction(async (tx) => {
          const [archived] = await tx.update(itineraryItems).set({ deletedAt: new Date() }).where(eq(itineraryItems.id, input.id)).returning();
@@ -348,27 +348,31 @@ export const appRouter = {
       const access = await expenseAccess(context.db, context, input.tripId, input.payerMemberId, input.shares.map((share) => share.memberId));
       if (input.currency !== access.currency) throw new ORPCError("BAD_REQUEST", { message: "Expense currency must match the trip currency." });
       const shares = input.splitType === "equal" ? equalShares(input.amountMinor, input.shares.map((share) => share.memberId)) : customShares(input.amountMinor, input.shares);
-      return context.db.transaction(async (tx) => {
+       const expense = await context.db.transaction(async (tx) => {
         const [expense] = await tx.insert(expenses).values({ tripId: input.tripId, createdByMemberId: access.memberId, payerMemberId: input.payerMemberId, description: input.description, amountMinor: input.amountMinor, currency: input.currency, splitType: input.splitType, occurredAt: new Date(input.occurredAt) }).returning();
         if (!expense) throw new ORPCError("INTERNAL_SERVER_ERROR");
         await tx.insert(expenseShares).values(shares.map((share) => ({ expenseId: expense.id, ...share })));
         await recordActivity(tx, input.tripId, access.memberId, "expense.created", { expenseId: expense.id, description: expense.description });
-        return expense;
-      });
+         return expense;
+       });
+       publishRealtimeEvent({ tripId: input.tripId, actorMemberId: access.memberId, type: "expense.changed", payload: { expenseId: expense.id } });
+       return expense;
     }),
     update: protectedProcedure.input(expenseInput.extend({ id: z.string().uuid() })).handler(async ({ context, input }) => {
       const access = await expenseAccess(context.db, context, input.tripId, input.payerMemberId, input.shares.map((share) => share.memberId), input.id);
       if (input.currency !== access.currency) throw new ORPCError("BAD_REQUEST", { message: "Expense currency must match the trip currency." });
       const shares = input.splitType === "equal" ? equalShares(input.amountMinor, input.shares.map((share) => share.memberId)) : customShares(input.amountMinor, input.shares);
-      return context.db.transaction(async (tx) => {
+       const expense = await context.db.transaction(async (tx) => {
         const [expense] = await tx.update(expenses).set({ payerMemberId: input.payerMemberId, description: input.description, amountMinor: input.amountMinor, currency: input.currency, splitType: input.splitType, occurredAt: new Date(input.occurredAt) }).where(and(eq(expenses.id, input.id), isNull(expenses.deletedAt))).returning();
         if (!expense) throw new ORPCError("NOT_FOUND");
          await tx.delete(expenseShares).where(eq(expenseShares.expenseId, input.id));
          await tx.insert(expenseShares).values(shares.map((share) => ({ expenseId: input.id, ...share })));
          await tx.delete(settlements).where(eq(settlements.tripId, input.tripId));
         await recordActivity(tx, input.tripId, access.memberId, "expense.updated", { expenseId: expense.id, description: expense.description });
-        return expense;
-      });
+         return expense;
+       });
+       publishRealtimeEvent({ tripId: input.tripId, actorMemberId: access.memberId, type: "expense.changed", payload: { expenseId: expense.id } });
+       return expense;
     }),
     remove: protectedProcedure.input(z.object({ tripId: z.string().uuid(), id: z.string().uuid() })).handler(async ({ context, input }) => {
       await expenseAccess(context.db, context, input.tripId, undefined, [], input.id);
@@ -381,7 +385,8 @@ export const appRouter = {
          return deleted;
        });
        if (!removed) throw new ORPCError("NOT_FOUND");
-      return removed;
+       publishRealtimeEvent({ tripId: input.tripId, actorMemberId: member.memberId, type: "expense.changed", payload: { expenseId: removed.id } });
+       return removed;
     }),
     settlements: {
       list: protectedProcedure.input(z.object({ tripId: z.string().uuid() })).handler(async ({ context, input }) => {
@@ -390,7 +395,7 @@ export const appRouter = {
       }),
       markSettled: protectedProcedure.input(z.object({ tripId: z.string().uuid(), fromMemberId: z.string().uuid(), toMemberId: z.string().uuid(), amountMinor: z.number().int().positive() })).handler(async ({ context, input }) => {
         const access = await expenseAccess(context.db, context, input.tripId, input.fromMemberId, [input.toMemberId]);
-         return context.db.transaction(async (tx) => {
+          const settlement = await context.db.transaction(async (tx) => {
          const [existing] = await tx.select().from(settlements).where(and(eq(settlements.tripId, input.tripId), eq(settlements.fromMemberId, input.fromMemberId), eq(settlements.toMemberId, input.toMemberId), eq(settlements.amountMinor, input.amountMinor), eq(settlements.currency, access.currency))).limit(1);
         if (existing) {
            const [updated] = await tx.update(settlements).set({ status: "settled", markedSettledAt: new Date() }).where(eq(settlements.id, existing.id)).returning();
@@ -400,7 +405,9 @@ export const appRouter = {
          const [created] = await tx.insert(settlements).values({ tripId: input.tripId, fromMemberId: input.fromMemberId, toMemberId: input.toMemberId, amountMinor: input.amountMinor, currency: access.currency, status: "settled", markedSettledAt: new Date() }).returning();
          if (created) await recordActivity(tx, input.tripId, access.memberId, "settlement.settled", { settlementId: created.id });
          return created;
-         });
+          });
+          if (settlement) publishRealtimeEvent({ tripId: input.tripId, actorMemberId: access.memberId, type: "settlement.changed", payload: { settlementId: settlement.id } });
+          return settlement;
       }),
       markSuggested: protectedProcedure.input(z.object({ tripId: z.string().uuid(), settlementId: z.string().uuid() })).handler(async ({ context, input }) => {
         await expenseAccess(context.db, context, input.tripId);
@@ -410,8 +417,9 @@ export const appRouter = {
          if (settlement) await recordActivity(tx, input.tripId, access.memberId, "settlement.reopened", { settlementId: settlement.id });
          return settlement;
          });
-        if (!updated) throw new ORPCError("NOT_FOUND");
-        return updated;
+         if (!updated) throw new ORPCError("NOT_FOUND");
+         publishRealtimeEvent({ tripId: input.tripId, actorMemberId: access.memberId, type: "settlement.changed", payload: { settlementId: updated.id } });
+         return updated;
       }),
     },
   },

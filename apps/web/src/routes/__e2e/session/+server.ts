@@ -2,7 +2,7 @@ import { error, json } from "@sveltejs/kit";
 import { db } from "@waymark/db";
 import { user } from "@waymark/db/schema/auth";
 import { userProfiles } from "@waymark/db/schema";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import type { RequestHandler } from "./$types";
 
@@ -18,7 +18,7 @@ export const POST: RequestHandler = async ({ cookies, request }) => {
     await db.insert(userProfiles).values({ userId, username: `e2e_${suffix.slice(0, 16)}`, displayName: "E2E Creator" });
   }
   const token = randomUUID();
-  await db.insert((await import("@waymark/db/schema/auth")).session).values({ id: randomUUID(), token, userId, expiresAt: new Date(Date.now() + 60 * 60 * 1000), ipAddress: "127.0.0.1", userAgent: "Waymark Playwright" });
+  await db.insert((await import("@waymark/db/schema/auth")).session).values({ id: randomUUID(), token: createHash("sha256").update(token).digest("hex"), userId, expiresAt: new Date(Date.now() + 60 * 60 * 1000), ipAddress: "127.0.0.1", userAgent: "Waymark Playwright" });
   cookies.set("better-auth.session_token", token, { path: "/", httpOnly: true, sameSite: "lax", secure: false, maxAge: 60 * 60 });
-  return json({ userId, email });
+  return json({ userId, email, token });
 };

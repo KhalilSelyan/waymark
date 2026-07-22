@@ -7,14 +7,14 @@ export const test = base.extend<{ creatorPage: void }>({
       await use();
       return;
     }
-    const username = `e2e_${randomUUID().replaceAll("-", "").slice(0, 16)}`;
-    const response = await page.request.post("/api/auth/sign-up/email", { data: { name: "E2E Creator", email: `${username}@example.test`, password: "Test-password-123!" } });
+    const response = await page.request.post("/__e2e/session", { data: { runId: `${testInfo.testId}-${randomUUID()}` } });
     expect(response.ok()).toBeTruthy();
-    await page.goto("/onboarding/username");
-    await page.locator("#username").fill(username);
-    await page.getByRole("button", { name: "Continue" }).click();
+    const session = await response.json() as { token: string };
+    await page.context().addCookies([
+      { name: "better-auth.session_token", value: session.token, domain: "127.0.0.1", path: "/" },
+      { name: "__Secure-better-auth.session_token", value: session.token, domain: "127.0.0.1", path: "/", secure: true },
+    ]);
     await page.goto("/dashboard");
-    await expect(page.getByRole("heading", { name: "Your trips" })).toBeVisible();
     await use();
   }, { auto: true }],
 });

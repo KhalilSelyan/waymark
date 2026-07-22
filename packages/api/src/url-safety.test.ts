@@ -10,4 +10,10 @@ describe("URL safety", () => {
     expect(isBlockedHostname("LOCALHOST.")).toBe(true);
     expect(isBlockedHostname("metadata.google.com.")).toBe(true);
   });
+  it("handles protocol and hostname edge cases", () => {
+    expect(() => assertSafeUrlSyntax("file:///etc/passwd")).toThrow();
+    expect(() => assertSafeUrlSyntax("javascript:alert(1)")).toThrow();
+    expect(() => assertSafeUrlSyntax("https://[::1]/")).toThrow();
+    expect(assertSafeUrlSyntax("HTTPS://EXAMPLE.COM").protocol).toBe("https:");
+  });
 });

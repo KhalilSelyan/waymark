@@ -12,12 +12,14 @@ describe("customShares", () => {
   it("accepts exact totals", () => expect(customShares(1000, [{ memberId: "a", amountMinor: 250 }, { memberId: "b", amountMinor: 750 }])).toHaveLength(2));
   it("rejects incorrect totals, duplicates, and negatives", () => { expect(() => customShares(100, [{ memberId: "a", amountMinor: 99 }])).toThrow(); expect(() => customShares(100, [{ memberId: "a", amountMinor: 50 }, { memberId: "a", amountMinor: 50 }])).toThrow(); expect(() => customShares(100, [{ memberId: "a", amountMinor: -1 }, { memberId: "b", amountMinor: 101 }])).toThrow(); });
   it("rejects non-finite and overflowing values", () => { expect(() => customShares(100, [{ memberId: "a", amountMinor: Number.NaN }])).toThrow(); expect(() => customShares(Number.MAX_SAFE_INTEGER, [{ memberId: "a", amountMinor: Number.MAX_SAFE_INTEGER }, { memberId: "b", amountMinor: 1 }])).toThrow(); });
+  it("does not mutate caller-owned shares", () => { const shares = [{ memberId: "a", amountMinor: 100 }]; const result = customShares(100, shares); result[0]!.amountMinor = 50; expect(shares[0]!.amountMinor).toBe(100); });
 });
 
 describe("calculateBalances", () => {
   it("calculates payer credit and participant debts", () => expect(calculateBalances(1000, "a", [{ memberId: "a", amountMinor: 500 }, { memberId: "b", amountMinor: 500 }])).toEqual([{ memberId: "a", netMinor: 500 }, { memberId: "b", netMinor: -500 }]));
   it("includes a payer who is not a participant", () => expect(calculateBalances(300, "payer", [{ memberId: "guest", amountMinor: 300 }])).toEqual([{ memberId: "payer", netMinor: 300 }, { memberId: "guest", netMinor: -300 }]));
   it("rejects malformed shares", () => { expect(() => calculateBalances(100, "payer", [{ memberId: "guest", amountMinor: -1 }])).toThrow(); expect(() => calculateBalances(100, "payer", [{ memberId: "guest", amountMinor: Number.POSITIVE_INFINITY }])).toThrow(); });
+  it("rejects mismatched totals and preserves zero members", () => { expect(() => calculateBalances(100, "payer", [{ memberId: "guest", amountMinor: 99 }])).toThrow(); expect(calculateBalances(0, "payer", [])).toEqual([{ memberId: "payer", netMinor: 0 }]); });
 });
 
 describe("settlementSuggestions", () => {

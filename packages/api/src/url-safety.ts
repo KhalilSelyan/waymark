@@ -8,7 +8,8 @@ export function assertSafeUrlSyntax(value: string) {
   try { url = new URL(value); } catch { throw new UnsafeUrlError("Invalid URL."); }
   if (url.protocol !== "http:" && url.protocol !== "https:") throw new UnsafeUrlError("Only HTTP and HTTPS URLs are allowed.");
   if (url.username || url.password) throw new UnsafeUrlError(" URLs with credentials are not allowed.");
-  if (isBlockedHostname(url.hostname) || (isIP(url.hostname) && isBlockedIp(url.hostname))) throw new UnsafeUrlError("This destination is not allowed.");
+  const hostname = url.hostname.replace(/^\[|\]$/g, "");
+  if (isBlockedHostname(hostname) || (isIP(hostname) && isBlockedIp(hostname))) throw new UnsafeUrlError("This destination is not allowed.");
   return url;
 }
 

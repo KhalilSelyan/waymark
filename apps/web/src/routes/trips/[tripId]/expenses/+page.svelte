@@ -23,6 +23,7 @@
   let settlementRows = $state<Settlement[]>([]);
   let removeTarget = $state<Expense | null>(null);
   let form = $state({ description: "", amount: "", payerMemberId: "", splitType: "equal" as "equal" | "custom", participantIds: [] as string[], customAmounts: {} as Record<string, string>, occurredAt: new Date().toISOString().slice(0, 16) });
+  let realtime: EventSource | undefined;
   let fieldErrors = $state<Record<string, string>>({});
   const trip = $derived(page.data.trip);
   const tripId = $derived(page.params.tripId ?? "");
@@ -54,7 +55,15 @@
   });
   let suggestions = $derived(settlementSuggestions(balances.map((balance) => ({ memberId: balance.id, netMinor: balance.netMinor ?? 0 }))));
 
-  onMount(() => { void refresh(); });
+  onMount(() => {
+    void refresh();
+    realtime = new EventSource(`/realtime/trips/${tripId}`);
+    realtime.onmessage = (event) => {
+      const message = JSON.parse(event.data) as { type?: string };
+      if (message.type === "expense.changed" || message.type === "settlement.changed") void refresh();
+    };
+    return () => realtime?.close();
+  });
   function money(minor: number) { return new Intl.NumberFormat(undefined, { style: "currency", currency: trip.currency }).format(minor / 100); }
   async function refresh() { loading = true; try { const [expenseRows, memberRows, settlements] = await Promise.all([client.expenses.list({ tripId }), client.members.list({ tripId }), client.expenses.settlements.list({ tripId })]); expenses = expenseRows; members = memberRows; settlementRows = settlements; settled = new Set(settlements.filter((row) => row.status === "settled").map((row) => row.id)); if (!form.payerMemberId) form.payerMemberId = memberRows[0]?.id ?? ""; error = null; } catch (caught) { error = caught instanceof Error ? caught.message : "Expenses could not be loaded."; } finally { loading = false; } }
   function toggleParticipant(id: string) { form.participantIds = form.participantIds.includes(id) ? form.participantIds.filter((value) => value !== id) : [...form.participantIds, id]; }
