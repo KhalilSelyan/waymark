@@ -153,13 +153,14 @@ export const appRouter = {
        const shapeId = `shape:${crypto.randomUUID()}`;
         const [sourceAsset] = place.url ? await context.db.select({ id: assets.id }).from(assets).where(and(eq(assets.tripId, input.tripId), eq(assets.sourceUrl, place.url))).orderBy(desc(assets.createdAt)).limit(1) : [];
         const candidates = await context.db.select().from(canvasObjects).where(eq(canvasObjects.tripId, input.tripId)).orderBy(desc(canvasObjects.updatedAt));
-       const original = candidates.find((candidate) => {
-         const data = candidate.data && typeof candidate.data === "object" ? candidate.data as Record<string, unknown> : null;
-         const shape = data?.shape && typeof data.shape === "object" ? data.shape as Record<string, unknown> : null;
-         const meta = shape?.meta && typeof shape.meta === "object" ? shape.meta as Record<string, unknown> : null;
-         const props = shape?.props && typeof shape.props === "object" ? shape.props as Record<string, unknown> : null;
-         return meta?.waymarkRecordId === place.id || (shape?.type === "webpage-card" && props?.url === place.url) || (sourceAsset && meta?.assetId === sourceAsset.id);
-       });
+        const matches = (candidate: typeof candidates[number]) => {
+          const data = candidate.data && typeof candidate.data === "object" ? candidate.data as Record<string, unknown> : null;
+          const shape = data?.shape && typeof data.shape === "object" ? data.shape as Record<string, unknown> : null;
+          const meta = shape?.meta && typeof shape.meta === "object" ? shape.meta as Record<string, unknown> : null;
+          const props = shape?.props && typeof shape.props === "object" ? shape.props as Record<string, unknown> : null;
+          return meta?.waymarkRecordId === place.id || (shape?.type === "webpage-card" && props?.url === place.url) || (sourceAsset && meta?.assetId === sourceAsset.id);
+        };
+        const original = candidates.find((candidate) => matches(candidate) && (candidate.type === "webpage-card" || (candidate.data && typeof candidate.data === "object" && "asset" in candidate.data))) ?? candidates.find(matches);
        const originalData = original?.data && typeof original.data === "object" ? original.data as Record<string, unknown> : null;
        const originalShape = originalData?.shape && typeof originalData.shape === "object" ? originalData.shape as Record<string, unknown> : null;
        const shape = originalShape ? { ...originalShape, id: shapeId, x: 80, y: 80, meta: { ...(originalShape.meta && typeof originalShape.meta === "object" ? originalShape.meta : {}), waymarkType: "place", waymarkRecordId: place.id } } : { id: shapeId, type: "note", x: 80, y: 80, rotation: 0, index: "a1", parentId: "page:page", isLocked: false, opacity: 1, meta: { waymarkType: "place", waymarkRecordId: place.id }, props: { color: "blue", size: "m", font: "draw", align: "start", verticalAlign: "start", url: "", richText: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: place.name }] }] }, scale: 1 } };
