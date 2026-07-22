@@ -52,6 +52,11 @@
     try { await client.places.archive({ id }); places = places.filter((place) => place.id !== id); if (editingId === id) resetForm(); }
     catch (caught) { error = caught instanceof Error ? caught.message : "Place could not be archived."; }
   }
+
+  async function addToCanvas(id: string) {
+    try { await client.places.addToCanvas({ tripId, placeId: id }); error = "Place added to the canvas."; }
+    catch (caught) { error = caught instanceof Error ? caught.message : "Place could not be added to the canvas."; }
+  }
 </script>
 
 <svelte:head><title>Places · {page.data.trip.name}</title></svelte:head>
@@ -78,6 +83,7 @@
               <div class="flex flex-wrap gap-3">
                 {#if place.mapUrl}<a class="text-primary underline underline-offset-4" href={place.mapUrl} target="_blank" rel="noreferrer noopener">Open map</a>{/if}
                 {#if place.url}<a class="text-primary underline underline-offset-4" href={place.url} target="_blank" rel="noreferrer noopener">Open website</a>{/if}
+                <button class="text-primary underline underline-offset-4 hover:text-foreground" onclick={() => void addToCanvas(place.id)}>Add to canvas</button>
                 <button class="text-muted-foreground underline underline-offset-4 hover:text-destructive" onclick={() => archive(place.id)}>Archive</button>
               </div>
             </CardContent>

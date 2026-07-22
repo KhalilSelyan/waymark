@@ -145,6 +145,16 @@ export const appRouter = {
       if (place) await recordActivity(context.db, place.tripId, current.memberId, "place.archived", { placeId: place.id, name: place.name });
       return place;
     }),
+    addToCanvas: protectedProcedure.input(z.object({ tripId: z.string().uuid(), placeId: z.string().uuid() })).handler(async ({ context, input }) => {
+      const [member] = await context.db.select({ id: tripMembers.id }).from(tripMembers).innerJoin(trips, eq(tripMembers.tripId, trips.id)).where(and(eq(tripMembers.tripId, input.tripId), eq(tripMembers.userId, context.session!.user.id), isNull(tripMembers.removedAt), isNull(trips.deletedAt))).limit(1);
+      if (!member) throw new ORPCError("NOT_FOUND");
+      const [place] = await context.db.select().from(places).where(and(eq(places.id, input.placeId), eq(places.tripId, input.tripId), isNull(places.deletedAt))).limit(1);
+      if (!place) throw new ORPCError("NOT_FOUND");
+      const shapeId = `shape:${crypto.randomUUID()}`;
+      const shape = { id: shapeId, type: "note", x: 80, y: 80, rotation: 0, index: "a1", parentId: "page:page", isLocked: false, opacity: 1, meta: { waymarkType: "place", waymarkRecordId: place.id }, props: { color: "blue", size: "m", font: "draw", align: "start", verticalAlign: "start", url: "", richText: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: place.name }] }] }, scale: 1 } };
+      const [object] = await context.db.insert(canvasObjects).values({ tripId: input.tripId, createdByMemberId: member.id, type: "note", x: 80, y: 80, width: 280, height: 200, rotation: 0, zIndex: 0, data: { shape } }).returning();
+      return object;
+    }),
   },
   itinerary: {
     list: protectedProcedure.input(z.object({ tripId: z.string().uuid() })).handler(async ({ context, input }) => {
