@@ -4,13 +4,16 @@
 	import '../app.css';
     import { queryClient } from '$lib/orpc';
     import Header from '../components/Header.svelte';
+    import { page } from '$app/state';
 
 	const { children } = $props();
 </script>
 
 <QueryClientProvider client={queryClient}>
     <div class="grid h-svh grid-rows-[auto_1fr]">
-		<Header />
+        {#if page.url.pathname !== '/'}
+            <Header />
+        {/if}
 		<main class="overflow-y-auto">
 			{@render children()}
 		</main>
