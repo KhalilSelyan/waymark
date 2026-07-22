@@ -9,6 +9,7 @@
   import { loadCanvas, createCanvasObject, updateCanvasObject, removeCanvasObject } from "$lib/canvas/canvas-persistence";
   import { recordToAsset, recordToShape } from "$lib/canvas/canvas-mapper";
   import type { CanvasRecord } from "$lib/canvas/canvas-types";
+  import * as ContextMenu from "$lib/components/ui/context-menu/index.js";
 
   let editor: Editor | null = null;
   let canvasSection: HTMLElement;
@@ -18,7 +19,7 @@
   let promotion = $state<string | null>(null);
   let captureUrl = $state("");
   let captureStatus = $state<"idle" | "capturing" | "error">("idle");
-  let contextMenu = $state<{ x: number; y: number } | null>(null);
+  let contextMenu = $state(false);
   let contextTitle = $state("");
   let realtime: EventSource | undefined;
   let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
@@ -116,7 +117,7 @@
       const result = await client.itinerary.promoteCanvasObject({ tripId, canvasObjectId: id, day: page.data.trip.startsOn ?? null, title: titleOverride?.trim() || null });
       promotion = result.created ? "Added to itinerary as an idea." : "This idea is already on the itinerary.";
       if (shape && result.id) editor?.updateShape({ ...shape, meta: { ...shape.meta, waymarkItineraryId: result.id } });
-      contextMenu = null;
+      contextMenu = false;
       contextTitle = "";
     } catch (caught) {
       promotion = caught instanceof Error ? caught.message : "The idea could not be added to the itinerary.";
@@ -131,7 +132,7 @@
       const shapeProps = (shape as TLShape & { props?: { url?: unknown } }).props;
       await client.places.saveCanvasObjectAsPlace({ tripId, canvasObjectId: id, name: contextTitle.trim(), url: typeof shapeProps?.url === "string" ? shapeProps.url : null });
       promotion = "Saved as a place and linked to this canvas object.";
-      contextMenu = null;
+      contextMenu = false;
       contextTitle = "";
     } catch (caught) {
       promotion = caught instanceof Error ? caught.message : "The place could not be saved.";
@@ -142,23 +143,28 @@
     event.preventDefault();
     const selected = editor?.getSelectedShapes()[0];
     if (!selected || !serverId(selected)) return;
-    const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect();
-    contextMenu = { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
+    contextMenu = true;
     contextTitle = "";
   }
 
   function dismissContextMenu(event: PointerEvent) {
     if ((event.target as HTMLElement).closest("[role=menu]")) return;
-    contextMenu = null;
+    contextMenu = false;
   }
 
   function handleCanvasKeydown(event: KeyboardEvent) {
-    if (event.key === "Escape") contextMenu = null;
+    if (event.key === "Escape") contextMenu = false;
   }
 
   function selectedRelationship() {
     const meta = editor?.getSelectedShapes()[0]?.meta as { waymarkType?: string; waymarkRecordId?: string; waymarkItineraryId?: string } | undefined;
     return meta;
+  }
+
+  function handleContextMenuOpen(open: boolean) {
+    const selected = editor?.getSelectedShapes()[0];
+    contextMenu = open && Boolean(selected && serverId(selected));
+    if (contextMenu) contextTitle = "";
   }
 
   async function captureWebpage() {
@@ -306,11 +312,13 @@
   {#if error}
     <div class="border-b border-destructive/30 bg-destructive/10 px-4 py-2 text-sm text-destructive" role="alert">{error}</div>
   {/if}
-  <div class="relative min-h-0 flex-1" role="application" aria-label="Shared planning canvas" onpointermove={broadcastCursor} oncontextmenucapture={(event) => { event.preventDefault(); event.stopPropagation(); openContextMenu(event); }}>
-    <TldrawCanvas onEditorMount={initialize} />
-    {#each [...remoteCursors] as [memberId, cursor] (memberId)}<span class="pointer-events-none absolute rounded bg-background/90 px-1.5 py-0.5 text-[10px] shadow" style={`left:${cursor.x + 12}px;top:${cursor.y + 12}px;color:${cursor.color}`}>{cursor.displayName}</span>{/each}
+  <ContextMenu.Root bind:open={contextMenu} onOpenChange={handleContextMenuOpen}>
+    <ContextMenu.Trigger class="relative min-h-0 flex-1" role="application" aria-label="Shared planning canvas" onpointermove={broadcastCursor}>
+      <TldrawCanvas onEditorMount={initialize} />
+      {#each [...remoteCursors] as [memberId, cursor] (memberId)}<span class="pointer-events-none absolute rounded bg-background/90 px-1.5 py-0.5 text-[10px] shadow" style={`left:${cursor.x + 12}px;top:${cursor.y + 12}px;color:${cursor.color}`}>{cursor.displayName}</span>{/each}
+    </ContextMenu.Trigger>
     {#if contextMenu}
-      <div class="absolute z-50 w-64 rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-xl" style={`left:${contextMenu.x}px;top:${contextMenu.y}px`} role="menu" tabindex="-1" onpointerdown={(event) => event.stopPropagation()}>
+      <ContextMenu.Content class="w-64 p-3">
         <p class="mb-2 text-xs font-semibold">Add object to itinerary</p>
         {#if selectedRelationship()?.waymarkType === "place"}<p class="mb-2 text-[11px] text-muted-foreground">Linked to a saved place</p>{/if}
         {#if selectedRelationship()?.waymarkItineraryId}<p class="mb-2 text-[11px] text-muted-foreground">Already linked to the itinerary</p>{/if}
@@ -324,7 +332,7 @@
         <input id="context-title" class="mb-2 w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring" bind:value={contextTitle} placeholder="Title (optional)" onkeydown={(event) => { if (event.key === "Enter") void promoteSelected(contextTitle); }} />
         <Button class="w-full" size="sm" onclick={() => void promoteSelected(contextTitle)}>Add to itinerary</Button>
         <Button class="mt-2 w-full" variant="outline" size="sm" disabled={!contextTitle.trim()} onclick={() => void saveSelectedAsPlace()}>Save as place</Button>
-      </div>
+      </ContextMenu.Content>
     {/if}
-  </div>
+  </ContextMenu.Root>
 </section>
