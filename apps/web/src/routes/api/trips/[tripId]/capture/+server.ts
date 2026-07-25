@@ -53,6 +53,19 @@ export const POST: RequestHandler = async ({ request, cookies, params }) => {
       ]);
     }, undefined);
     await page.waitForTimeout(350);
+    const challengeDetected = await page.evaluate(() => {
+      const text = `${document.title}\n${document.body?.innerText ?? ""}`.toLowerCase();
+      return [
+        "captcha",
+        "verify you are human",
+        "verifying you are human",
+        "i'm not a robot",
+        "security check",
+        "challenge required",
+        "checking your browser",
+      ].some((marker) => text.includes(marker));
+    });
+    if (challengeDetected) throw new Error("This page requires a CAPTCHA or security check before it can be captured.");
     const screenshot = await page.screenshot({ type: "jpeg", quality: 82, fullPage: false });
     if (screenshot.byteLength > maxResponseBytes) throw new Error("Screenshot too large.");
     const id = randomUUID();

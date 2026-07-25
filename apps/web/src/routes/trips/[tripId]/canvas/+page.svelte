@@ -204,9 +204,9 @@
       captureUrl = "";
       promotion = "Webpage screenshot added to the canvas.";
       captureStatus = "idle";
-    } catch (caught) {
+    } catch {
       captureStatus = "error";
-      promotion = caught instanceof Error ? caught.message : "Webpage capture failed.";
+      promotion = "Waymark couldn't capture that page automatically. It may be showing a CAPTCHA or blocking automated screenshots. Open the link, take a screenshot, and add it to the canvas manually.";
     }
   }
 
@@ -380,7 +380,14 @@
       </Button>
     </div>
   </div>
-  {#if promotion}<p class="border-b border-border px-4 py-2 text-xs text-muted-foreground" aria-live="polite">{promotion}</p>{/if}
+  {#if promotion}
+    <div class="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2 text-xs text-muted-foreground" aria-live="polite">
+      <span>{promotion}</span>
+      {#if captureStatus === "error" && captureUrl.trim()}
+        <a class="font-medium text-primary underline underline-offset-2" href={captureUrl.trim()} target="_blank" rel="noreferrer noopener">Open source ↗</a>
+      {/if}
+    </div>
+  {/if}
   <form class="flex flex-wrap gap-2 border-b border-border px-4 py-2" onsubmit={(event) => { event.preventDefault(); void captureWebpage(); }}>
     <label class="sr-only" for="capture-url">Webpage URL</label>
     <input id="capture-url" class="min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring" type="url" bind:value={captureUrl} placeholder="Paste a public webpage URL to capture" />
