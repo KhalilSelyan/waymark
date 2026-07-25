@@ -5,6 +5,14 @@ test("landing page loads", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "The trip plan your whole group can actually use." })).toBeVisible();
 });
 
+test("authenticated user can reach the dashboard from the landing page", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("link", { name: "Dashboard" })).toBeVisible();
+  await page.getByRole("link", { name: "Dashboard" }).click();
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(page.getByRole("heading", { name: "Your trips" })).toBeVisible();
+});
+
 test("login page exposes Google sign-in", async ({ page }) => {
   await page.goto("/login");
   await expect(page.getByRole("button", { name: /continue with google/i })).toBeVisible();

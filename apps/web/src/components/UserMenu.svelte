@@ -29,6 +29,12 @@
 	{:else if $sessionQuery.data?.user}
 		{@const user = $sessionQuery.data.user}
 		<div class="flex items-center gap-3">
+			<a
+				href="/dashboard"
+				class="rounded border border-sky-300/30 px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider text-sky-300 transition hover:bg-sky-300/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
+			>
+				Dashboard
+			</a>
 			<span class="hidden font-mono text-[10px] uppercase tracking-wider text-neutral-500 sm:inline" title={user.email}>
 				{user.name || user.email?.split('@')[0] || 'User'}
 			</span>
