@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Button } from "$lib/components/ui/button/index.js";
+  import UserMenu from "../components/UserMenu.svelte";
 
   const pillars = [
     { icon: "✎", title: "Sketch the plan", text: "Drop links, pins, and ideas onto a shared canvas. Everyone can contribute." },
@@ -18,7 +19,7 @@
   <header class="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-neutral-950/80 backdrop-blur-md">
     <div class="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
       <div class="flex items-center gap-8"><a href="/" class="font-mono text-lg font-bold tracking-[-0.08em]">WAYMARK</a><nav class="hidden gap-6 text-xs text-neutral-400 md:flex"><a class="transition hover:text-sky-300" href="#product">Product</a><a class="transition hover:text-sky-300" href="#workflow">How it works</a><a class="transition hover:text-sky-300" href="#money">Expenses</a></nav></div>
-      <div class="flex items-center gap-3"><Button href="/login" variant="ghost" size="sm">Sign in</Button><Button href="/trips/new" size="sm">Create a trip</Button></div>
+      <div class="flex items-center gap-3"><UserMenu /><Button href="/trips/new" size="sm">Create a trip</Button></div>
     </div>
   </header>
 
@@ -54,5 +55,5 @@
 
     <section class="border-t border-white/10 py-20 text-center"><span class="font-mono text-[10px] uppercase tracking-[0.25em] text-sky-300">Ready when the group is</span><h2 class="mx-auto mt-5 max-w-2xl text-3xl font-bold tracking-[-0.05em] sm:text-5xl">Plan the trip together. Track the money automatically.</h2><Button href="/trips/new" size="lg" class="mt-8">Create your trip</Button></section>
   </main>
-  <footer class="border-t border-white/10 bg-[#0e0e11] px-4 py-8 sm:px-6"><div class="mx-auto flex max-w-7xl flex-col justify-between gap-4 sm:flex-row"><div><a href="/" class="font-mono font-bold tracking-[-0.08em]">WAYMARK</a><p class="mt-2 font-mono text-[10px] text-neutral-600">Plan together. Track the money automatically.</p></div><nav class="flex gap-5 font-mono text-[10px] uppercase tracking-widest text-neutral-500"><a href="/login" class="hover:text-sky-300">Sign in</a><a href="#product" class="hover:text-sky-300">Product</a><a href="#money" class="hover:text-sky-300">Expenses</a></nav></div></footer>
+  <footer class="border-t border-white/10 bg-[#0e0e11] px-4 py-8 sm:px-6"><div class="mx-auto flex max-w-7xl flex-col justify-between gap-4 sm:flex-row"><div><a href="/" class="font-mono font-bold tracking-[-0.08em]">WAYMARK</a><p class="mt-2 font-mono text-[10px] text-neutral-600">Plan together. Track the money automatically.</p></div><nav class="flex gap-5 font-mono text-[10px] uppercase tracking-widest text-neutral-500"><a href="#product" class="hover:text-sky-300">Product</a><a href="#money" class="hover:text-sky-300">Expenses</a></nav></div></footer>
 </div>
