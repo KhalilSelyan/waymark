@@ -3,7 +3,7 @@
   import { type Editor, type TLShape } from "tldraw";
   import { Button } from "$lib/components/ui/button/index.js";
   import { page } from "$app/state";
-  import { browser } from "$app/environment";
+  import { goto } from "$app/navigation";
   import { client } from "$lib/orpc";
   import TldrawCanvas from "$lib/canvas/TldrawCanvas.svelte";
   import { loadCanvas, createCanvasObject, updateCanvasObject, removeCanvasObject } from "$lib/canvas/canvas-persistence";
@@ -13,7 +13,6 @@
 
   let editor: Editor | null = null;
   let canvasSection: HTMLElement;
-  let isFullscreen = $state(false);
   let status = $state<"loading" | "saved" | "saving" | "error">("loading");
   let error = $state<string | null>(null);
   let promotion = $state<string | null>(null);
@@ -38,6 +37,7 @@
   const removed = new Map<string, TLShape>();
 
   const tripId = $derived(page.params.tripId ?? "");
+  const isFocusMode = $derived(page.url.searchParams.get("focus") === "1");
 
   function serverId(shape: TLShape) {
     const value = (shape.meta as { waymarkObjectId?: unknown }).waymarkObjectId;
@@ -334,26 +334,15 @@
     if (reconnectTimer) clearTimeout(reconnectTimer);
     unsubscribe?.();
     realtime?.close();
-    if (browser) document.removeEventListener("fullscreenchange", handleFullscreenChange);
   });
 
-  function handleFullscreenChange() {
-    isFullscreen = document.fullscreenElement === canvasSection;
+  async function toggleFocusMode() {
+    const url = new URL(page.url);
+    if (isFocusMode) url.searchParams.delete("focus");
+    else url.searchParams.set("focus", "1");
+    await goto(`${url.pathname}${url.search}`, { replaceState: true, noScroll: true, keepFocus: true });
   }
 
-  async function toggleFullscreen() {
-    if (document.fullscreenElement) {
-      await document.exitFullscreen();
-    } else {
-      await canvasSection.requestFullscreen();
-    }
-  }
-
-  $effect(() => {
-    if (!browser) return;
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
-    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
-  });
 </script>
 
 <svelte:head>
@@ -362,7 +351,8 @@
 
 <svelte:window onpointerdown={dismissContextMenu} onkeydown={handleCanvasKeydown} />
 
-<section bind:this={canvasSection} class="mb-8 flex h-[calc(100svh-11rem)] min-h-[32rem] flex-col overflow-hidden border-y border-border bg-card sm:h-[calc(100svh-9rem)] lg:h-[calc(100svh-8rem)] fullscreen:mb-0 fullscreen:h-svh fullscreen:rounded-none">
+<section bind:this={canvasSection} class={isFocusMode ? "fixed inset-0 z-40 flex h-svh flex-col overflow-hidden bg-card" : "mb-8 flex h-[calc(100svh-11rem)] min-h-[32rem] flex-col overflow-hidden border-y border-border bg-card sm:h-[calc(100svh-9rem)] lg:h-[calc(100svh-8rem)]"}>
+  {#if !isFocusMode}
   <div class="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
     <div>
       <p class="font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Shared planning board</p>
@@ -375,11 +365,13 @@
         {#if status === "loading"}Loading canvas...{:else if status === "saving"}Saving...{:else if status === "error"}Save failed{:else}All changes saved{/if}
         · {realtimeStatus === "connected" ? "Live" : "Reconnecting"}
       </p>
-      <Button variant="outline" size="sm" onclick={toggleFullscreen} aria-label={isFullscreen ? "Exit fullscreen" : "Open canvas fullscreen"}>
-        {isFullscreen ? "Exit fullscreen" : "Fullscreen"}
-      </Button>
+      <Button variant="outline" size="sm" onclick={toggleFocusMode} aria-label="Enter focus mode">Focus mode</Button>
     </div>
   </div>
+  {:else}
+    <Button class="absolute right-4 top-4 z-10 shadow-md" variant="outline" size="sm" onclick={toggleFocusMode} aria-label="Exit focus mode">Exit focus</Button>
+  {/if}
+  {#if !isFocusMode}
   {#if promotion}
     <div class="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2 text-xs text-muted-foreground" aria-live="polite">
       <span>{promotion}</span>
@@ -393,7 +385,7 @@
     <input id="capture-url" class="min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring" type="url" bind:value={captureUrl} placeholder="Paste a public webpage URL to capture" />
     <Button type="submit" size="sm" variant="outline" disabled={captureStatus === "capturing"}>{captureStatus === "capturing" ? "Capturing..." : "Capture webpage"}</Button>
   </form>
-   {#if error}
+  {#if error}
      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-destructive/30 bg-destructive/10 px-4 py-2 text-sm text-destructive" role="alert">
        <span>{error}</span>
        <span class="flex shrink-0 gap-2">
@@ -401,7 +393,8 @@
          <Button variant="ghost" size="sm" onclick={discardUnsavedChanges}>Discard changes</Button>
        </span>
      </div>
-   {/if}
+  {/if}
+  {/if}
   <ContextMenu.Root bind:open={contextMenu} onOpenChange={handleContextMenuOpen}>
     <ContextMenu.Trigger class="relative min-h-0 flex-1" role="application" aria-label="Shared planning canvas" onpointermove={broadcastCursor}>
       <TldrawCanvas onEditorMount={initialize} />

@@ -19,9 +19,11 @@
   }
 
   const isCanvas = $derived(page.url.pathname.endsWith("/canvas"));
+  const isFocusMode = $derived(isCanvas && page.url.searchParams.get("focus") === "1");
 </script>
 
 <div class="flex min-h-full flex-col">
+  {#if !isFocusMode}
   <header class="border-b border-border bg-card/80 backdrop-blur">
     <div class="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6">
       <div class="min-w-0">
@@ -42,6 +44,7 @@
       {/each}
     </nav>
   </header>
+  {/if}
   <main class={isCanvas ? "w-full flex-1" : "mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6"}>
     {@render children()}
   </main>
