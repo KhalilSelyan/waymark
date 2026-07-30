@@ -157,6 +157,10 @@
 
   function handleCanvasKeydown(event: KeyboardEvent) {
     if (event.key === "Escape") contextMenu = false;
+    if (isFocusMode && event.key.toLowerCase() === "f" && event.shiftKey && (event.metaKey || event.ctrlKey)) {
+      event.preventDefault();
+      void toggleFocusMode();
+    }
   }
 
   function selectedRelationship() {
@@ -369,7 +373,7 @@
     </div>
   </div>
   {:else}
-    <Button class="absolute right-4 top-4 z-10 shadow-md" variant="outline" size="sm" onclick={toggleFocusMode} aria-label="Exit focus mode">Exit focus</Button>
+    <Button class="absolute right-4 top-4 z-[1000] shadow-md" variant="outline" size="sm" onclick={toggleFocusMode} aria-label="Exit focus mode" title="Exit focus mode · ⌘⇧F / Ctrl⇧F">Exit focus</Button>
   {/if}
   {#if !isFocusMode}
   {#if promotion}
