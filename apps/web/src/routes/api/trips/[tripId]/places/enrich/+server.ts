@@ -1,8 +1,8 @@
 import { error, json } from "@sveltejs/kit";
-import { requireTripMember } from "$lib/server/trip-access";
-import { enforceRateLimit } from "$lib/server/rate-limit";
+import { requireTripMember } from "#lib/server/trip-access.js";
+import { enforceRateLimit } from "#lib/server/rate-limit.js";
 import { parseMapCoordinates } from "@waymark/api/map-enrichment";
-import { getMapProvider } from "$lib/server/map-provider";
+import { getMapProvider } from "#lib/server/map-provider.js";
 import type { RequestHandler } from "./$types";
 
 const cache = new Map<string, { expiresAt: number; value: Record<string, unknown> }>();

@@ -1,15 +1,15 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
   import { type Editor, type TLShape } from "tldraw";
-  import { Button } from "$lib/components/ui/button/index.js";
+  import { Button } from "#lib/components/ui/button/index.js";
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
-  import { client } from "$lib/orpc";
-  import TldrawCanvas from "$lib/canvas/TldrawCanvas.svelte";
-  import { loadCanvas, createCanvasObject, updateCanvasObject, removeCanvasObject } from "$lib/canvas/canvas-persistence";
-  import { recordToAsset, recordToShape } from "$lib/canvas/canvas-mapper";
-  import type { CanvasRecord } from "$lib/canvas/canvas-types";
-  import * as ContextMenu from "$lib/components/ui/context-menu/index.js";
+  import { client } from "#lib/orpc.js";
+  import TldrawCanvas from "#lib/canvas/TldrawCanvas.svelte";
+  import { loadCanvas, createCanvasObject, updateCanvasObject, removeCanvasObject } from "#lib/canvas/canvas-persistence.js";
+  import { recordToAsset, recordToShape } from "#lib/canvas/canvas-mapper.js";
+  import type { CanvasRecord } from "#lib/canvas/canvas-types.js";
+  import * as ContextMenu from "#lib/components/ui/context-menu/index.js";
 
   let editor: Editor | null = null;
   let canvasSection: HTMLElement;
@@ -341,10 +341,10 @@
   });
 
   async function toggleFocusMode() {
-    const url = new URL(page.url);
+    const url = new URL(page.url.href);
     if (isFocusMode) url.searchParams.delete("focus");
     else url.searchParams.set("focus", "1");
-    await goto(`${url.pathname}${url.search}`, { replaceState: true, noScroll: true, keepFocus: true });
+    await goto(`${url.pathname}${url.search}`, { replaceState: true, reset: false });
   }
 
 </script>

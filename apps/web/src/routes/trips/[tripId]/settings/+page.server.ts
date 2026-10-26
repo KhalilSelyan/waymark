@@ -3,7 +3,7 @@ import { auth } from "@waymark/auth";
 import { db } from "@waymark/db";
 import { trips, tripMembers } from "@waymark/db/schema";
 import { and, eq, isNull } from "drizzle-orm";
-import { tripFormSchema } from "$lib/trips";
+import { tripFormSchema } from "#lib/trips.js";
 import type { Actions, PageServerLoad } from "./$types";
 
 async function getOwnerTrip(request: Request, tripId: string) {

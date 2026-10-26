@@ -1,10 +1,10 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
-  import { Button } from "$lib/components/ui/button/index.js";
-  import { Card, CardContent, CardHeader, CardTitle } from "$lib/components/ui/card/index.js";
-  import { Input } from "$lib/components/ui/input/index.js";
-  import { Label } from "$lib/components/ui/label/index.js";
-  import { Calendar } from "$lib/components/ui/calendar/index.js";
+  import { Button } from "#lib/components/ui/button/index.js";
+  import { Card, CardContent, CardHeader, CardTitle } from "#lib/components/ui/card/index.js";
+  import { Input } from "#lib/components/ui/input/index.js";
+  import { Label } from "#lib/components/ui/label/index.js";
+  import { Calendar } from "#lib/components/ui/calendar/index.js";
   import { parseDate, type DateValue } from "@internationalized/date";
   import type { ActionData, PageData } from "./$types";
 

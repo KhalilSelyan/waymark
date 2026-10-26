@@ -1,22 +1,22 @@
 <script lang="ts">
   import { page } from "$app/state";
-  import { browser } from "$app/environment";
+  import { browser } from '$app/env';
   import { onMount } from "svelte";
-  import { client } from "$lib/orpc";
-  import { Button } from "$lib/components/ui/button/index.js";
-  import { Card, CardContent, CardHeader, CardTitle } from "$lib/components/ui/card/index.js";
-  import { Input } from "$lib/components/ui/input/index.js";
-  import { Label } from "$lib/components/ui/label/index.js";
-  import { Badge } from "$lib/components/ui/badge/index.js";
-  import { Calendar } from "$lib/components/ui/calendar/index.js";
-  import { Popover, PopoverContent, PopoverTrigger } from "$lib/components/ui/popover/index.js";
-  import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "$lib/components/ui/dropdown-menu/index.js";
-  import * as AlertDialog from "$lib/components/ui/alert-dialog/index.js";
-  import { Select, SelectContent, SelectItem, SelectTrigger } from "$lib/components/ui/select/index.js";
+  import { client } from "#lib/orpc.js";
+  import { Button } from "#lib/components/ui/button/index.js";
+  import { Card, CardContent, CardHeader, CardTitle } from "#lib/components/ui/card/index.js";
+  import { Input } from "#lib/components/ui/input/index.js";
+  import { Label } from "#lib/components/ui/label/index.js";
+  import { Badge } from "#lib/components/ui/badge/index.js";
+  import { Calendar } from "#lib/components/ui/calendar/index.js";
+  import { Popover, PopoverContent, PopoverTrigger } from "#lib/components/ui/popover/index.js";
+  import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "#lib/components/ui/dropdown-menu/index.js";
+  import * as AlertDialog from "#lib/components/ui/alert-dialog/index.js";
+  import { Select, SelectContent, SelectItem, SelectTrigger } from "#lib/components/ui/select/index.js";
   import { parseDate, type DateValue } from "@internationalized/date";
   import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
-  import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "$lib/components/ui/table/index.js";
-  import { readItineraryView, writeItineraryView, type ItineraryView } from "$lib/itinerary-view";
+  import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "#lib/components/ui/table/index.js";
+  import { readItineraryView, writeItineraryView, type ItineraryView } from "#lib/itinerary-view.js";
 
   type Row = Awaited<ReturnType<typeof client.itinerary.list>>[number];
   type Place = Awaited<ReturnType<typeof client.places.list>>[number];
@@ -113,7 +113,19 @@
   async function save() {
     saving = true;
     try {
-      const input = { day: form.day || null, title: form.title, placeId: form.placeId || null, startsAt: iso(form.startsAt), endsAt: iso(form.endsAt), notes: form.notes || null, status: form.status, sortOrder: editingId ? (rows.find((row) => row.item.id === editingId)?.item.sortOrder ?? 0) : rows.filter((row) => row.item.day === form.day).length };
+      const input = {
+        day: form.day || null,
+        title: form.title,
+        placeId: form.placeId || null,
+        startsAt: iso(form.startsAt),
+        endsAt: iso(form.endsAt),
+        notes: form.notes || null,
+        status: form.status,
+        sortOrder: editingId
+          ? rows.find((row) => row.item.id === editingId)?.item.sortOrder ?? 0
+          : rows.filter((row) => row.item.day === form.day).length
+      };
+
       if (editingId) await client.itinerary.update({ id: editingId, ...input }); else await client.itinerary.create({ tripId, ...input });
       reset(); await refresh();
     } catch (caught) { error = caught instanceof Error ? caught.message : "Itinerary item could not be saved."; }

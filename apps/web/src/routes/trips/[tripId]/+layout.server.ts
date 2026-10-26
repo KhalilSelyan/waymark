@@ -1,4 +1,4 @@
-import { requireTripMember } from "$lib/server/trip-access";
+import { requireTripMember } from "#lib/server/trip-access.js";
 import type { LayoutServerLoad } from "./$types";
 
 export const load: LayoutServerLoad = async ({ request, cookies, params }) => {

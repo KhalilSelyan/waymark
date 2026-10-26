@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { authClient } from "$lib/auth-client";
-  import { Button } from "$lib/components/ui/button/index.js";
+  import { authClient } from "#lib/auth-client.js";
+  import { Button } from "#lib/components/ui/button/index.js";
 
   let isLoading = $state(false);
   let errorMessage = $state("");

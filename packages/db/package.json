@@ -26,14 +26,14 @@
   "dependencies": {
     "@waymark/env": "workspace:*",
     "dotenv": "catalog:",
-    "drizzle-orm": "^0.45.2",
-    "pg": "^8.22.0",
+    "drizzle-orm": "^0.45.4",
+    "pg": "^8.23.1",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@types/pg": "^8.20.0",
+    "@types/pg": "^8.23.1",
     "@waymark/config": "workspace:*",
-    "drizzle-kit": "^0.31.10",
+    "drizzle-kit": "^0.31.11",
     "typescript": "catalog:"
   }
 }

@@ -3,13 +3,13 @@ import { chromium } from "@playwright/test";
 import { db } from "@waymark/db";
 import { activityEvents, assets, canvasObjects } from "@waymark/db/schema";
 import { publishRealtimeEvent } from "@waymark/api/realtime-hub";
-import { requireTripMember } from "$lib/server/trip-access";
-import { enforceRateLimit } from "$lib/server/rate-limit";
-import { putAsset, removeAsset } from "$lib/server/asset-storage";
+import { requireTripMember } from "#lib/server/trip-access.js";
+import { enforceRateLimit } from "#lib/server/rate-limit.js";
+import { putAsset, removeAsset } from "#lib/server/asset-storage.js";
 import { resolveSafeUrl } from "@waymark/api/url-safety";
 import { randomUUID } from "node:crypto";
 import type { RequestHandler } from "./$types";
-import { acceptsCaptureResponse, maxCaptureBytes } from "$lib/server/capture-limits";
+import { acceptsCaptureResponse, maxCaptureBytes } from "#lib/server/capture-limits.js";
 
 const maxResponseBytes = maxCaptureBytes;
 

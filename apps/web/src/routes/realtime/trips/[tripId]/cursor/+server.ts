@@ -1,4 +1,4 @@
-import { requireTripMember } from "$lib/server/trip-access";
+import { requireTripMember } from "#lib/server/trip-access.js";
 import { getStreamVersion, publishRealtimeEvent } from "@waymark/api/realtime-hub";
 import type { RequestHandler } from "./$types";
 

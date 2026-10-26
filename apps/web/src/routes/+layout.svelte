@@ -2,10 +2,10 @@
     import { QueryClientProvider } from '@tanstack/svelte-query';
     import { SvelteQueryDevtools } from '@tanstack/svelte-query-devtools'
 	import '../app.css';
-    import { queryClient } from '$lib/orpc';
+    import { queryClient } from '#lib/orpc.js';
     import Header from '../components/Header.svelte';
     import { page } from '$app/state';
-    import { Toaster } from '$lib/components/ui/sonner';
+    import { Toaster } from '#lib/components/ui/sonner/index.js';
 
 	const { children } = $props();
 </script>

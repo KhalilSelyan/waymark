@@ -2,9 +2,9 @@ import { error } from "@sveltejs/kit";
 import { db } from "@waymark/db";
 import { activityEvents, assets, canvasObjects } from "@waymark/db/schema";
 import { and, eq, isNull } from "drizzle-orm";
-import { getAsset } from "$lib/server/asset-storage";
-import { removeAsset } from "$lib/server/asset-storage";
-import { requireTripMember } from "$lib/server/trip-access";
+import { getAsset } from "#lib/server/asset-storage.js";
+import { removeAsset } from "#lib/server/asset-storage.js";
+import { requireTripMember } from "#lib/server/trip-access.js";
 import type { RequestHandler } from "./$types";
 
 export const GET: RequestHandler = async ({ request, cookies, params }) => {

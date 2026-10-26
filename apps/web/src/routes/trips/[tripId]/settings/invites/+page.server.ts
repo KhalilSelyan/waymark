@@ -3,9 +3,9 @@ import { auth } from "@waymark/auth";
 import { db } from "@waymark/db";
 import { tripInvites, trips, tripMembers } from "@waymark/db/schema";
 import { and, desc, eq, isNull } from "drizzle-orm";
-import { createInviteToken, hashInviteToken } from "$lib/invites";
+import { createInviteToken, hashInviteToken } from "#lib/invites.js";
 import type { Actions, PageServerLoad } from "./$types";
-import { enforceRateLimit } from "$lib/server/rate-limit";
+import { enforceRateLimit } from "#lib/server/rate-limit.js";
 
 async function requireOwner(request: Request, tripId: string) {
   const session = await auth.api.getSession({ headers: request.headers });

@@ -1,4 +1,4 @@
-import { requireTripMember } from "$lib/server/trip-access";
+import { requireTripMember } from "#lib/server/trip-access.js";
 import { getEventsSince, getPresence, getStreamVersion, joinPresence, leavePresence, publishRealtimeEvent, subscribeRealtime, touchPresence } from "@waymark/api/realtime-hub";
 import { canvasObjects } from "@waymark/db/schema";
 import { and, eq, isNull } from "drizzle-orm";

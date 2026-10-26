@@ -1,8 +1,8 @@
 import { error, json } from "@sveltejs/kit";
 import { db } from "@waymark/db";
 import { assets } from "@waymark/db/schema";
-import { requireTripMember } from "$lib/server/trip-access";
-import { putAsset } from "$lib/server/asset-storage";
+import { requireTripMember } from "#lib/server/trip-access.js";
+import { putAsset } from "#lib/server/asset-storage.js";
 import { randomUUID } from "node:crypto";
 import type { RequestHandler } from "./$types";
 
@@ -25,7 +25,7 @@ export const POST: RequestHandler = async ({ request, cookies, params }) => {
     if (!asset) throw new Error("Asset metadata was not created.");
     return json(asset, { status: 201 });
   } catch (caught) {
-    const { removeAsset } = await import("$lib/server/asset-storage");
+    const { removeAsset } = await import("#lib/server/asset-storage.js");
     await removeAsset(storageKey);
     throw caught;
   }

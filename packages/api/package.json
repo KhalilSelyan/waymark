@@ -9,7 +9,9 @@
       "default": "./src/*.ts"
     }
   },
-  "scripts": { "test": "vitest run" },
+  "scripts": {
+    "test": "vitest run"
+  },
   "dependencies": {
     "@orpc/client": "catalog:",
     "@orpc/openapi": "catalog:",
@@ -19,14 +21,14 @@
     "@waymark/db": "workspace:*",
     "@waymark/env": "workspace:*",
     "dotenv": "catalog:",
-    "drizzle-orm": "^0.45.2",
-    "pg": "^8.22.0",
+    "drizzle-orm": "^0.45.4",
+    "pg": "^8.23.1",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@types/pg": "^8.15.5",
+    "@types/pg": "^8.23.1",
     "@waymark/config": "workspace:*",
     "typescript": "catalog:",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.12"
   }
 }

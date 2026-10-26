@@ -3,10 +3,10 @@ import { db } from "@waymark/db";
 import { tripInvites, trips, tripGuests, tripMembers } from "@waymark/db/schema";
 import { and, eq, gt, isNull, or } from "drizzle-orm";
 import { createHash, randomBytes } from "node:crypto";
-import { hashInviteToken } from "$lib/invites";
+import { hashInviteToken } from "#lib/invites.js";
 import { z } from "zod";
 import type { Actions, PageServerLoad } from "./$types";
-import { enforceRateLimit } from "$lib/server/rate-limit";
+import { enforceRateLimit } from "#lib/server/rate-limit.js";
 
 const usernameSchema = z.string().trim().toLowerCase().regex(/^[a-z0-9_-]+$/).min(3).max(24);
 const displayNameSchema = z.string().trim().min(1).max(80);

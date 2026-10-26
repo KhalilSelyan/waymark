@@ -2,7 +2,7 @@ import { fail, redirect } from "@sveltejs/kit";
 import { auth } from "@waymark/auth";
 import { db } from "@waymark/db";
 import { trips, tripMembers } from "@waymark/db/schema";
-import { tripFormSchema } from "$lib/trips";
+import { tripFormSchema } from "#lib/trips.js";
 import type { Actions, PageServerLoad } from "./$types";
 
 export const load: PageServerLoad = async ({ locals }) => {

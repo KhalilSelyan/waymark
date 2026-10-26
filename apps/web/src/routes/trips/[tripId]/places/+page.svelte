@@ -1,12 +1,12 @@
 <script lang="ts">
   import { page } from "$app/state";
   import { onMount } from "svelte";
-  import { client } from "$lib/orpc";
-  import { Button } from "$lib/components/ui/button/index.js";
-  import { Card, CardContent, CardHeader, CardTitle } from "$lib/components/ui/card/index.js";
-  import { Input } from "$lib/components/ui/input/index.js";
-  import { Label } from "$lib/components/ui/label/index.js";
-  import * as AlertDialog from "$lib/components/ui/alert-dialog/index.js";
+  import { client } from "#lib/orpc.js";
+  import { Button } from "#lib/components/ui/button/index.js";
+  import { Card, CardContent, CardHeader, CardTitle } from "#lib/components/ui/card/index.js";
+  import { Input } from "#lib/components/ui/input/index.js";
+  import { Label } from "#lib/components/ui/label/index.js";
+  import * as AlertDialog from "#lib/components/ui/alert-dialog/index.js";
 
   type Place = Awaited<ReturnType<typeof client.places.list>>[number];
   let places = $state<Place[]>([]);

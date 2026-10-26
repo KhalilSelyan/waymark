@@ -1,8 +1,8 @@
 <script lang="ts">
   import { page } from "$app/state";
   import { onMount } from "svelte";
-  import { client } from "$lib/orpc";
-  import { Card, CardContent } from "$lib/components/ui/card/index.js";
+  import { client } from "#lib/orpc.js";
+  import { Card, CardContent } from "#lib/components/ui/card/index.js";
 
   type ActivityRow = Awaited<ReturnType<typeof client.activity.list>>[number];
   let events = $state<ActivityRow[]>([]);

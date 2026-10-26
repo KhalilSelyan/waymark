@@ -1,14 +1,14 @@
 <script lang="ts">
   import { page } from "$app/state";
   import { onMount } from "svelte";
-  import { client } from "$lib/orpc";
-  import { Button } from "$lib/components/ui/button/index.js";
-  import { Card, CardContent, CardHeader, CardTitle } from "$lib/components/ui/card/index.js";
-  import { Input } from "$lib/components/ui/input/index.js";
-  import { Label } from "$lib/components/ui/label/index.js";
+  import { client } from "#lib/orpc.js";
+  import { Button } from "#lib/components/ui/button/index.js";
+  import { Card, CardContent, CardHeader, CardTitle } from "#lib/components/ui/card/index.js";
+  import { Input } from "#lib/components/ui/input/index.js";
+  import { Label } from "#lib/components/ui/label/index.js";
   import { calculateBalances, equalShares, settlementSuggestions } from "@waymark/api/expenses";
-  import * as AlertDialog from "$lib/components/ui/alert-dialog/index.js";
-  import { toMinor } from "$lib/expense-money";
+  import * as AlertDialog from "#lib/components/ui/alert-dialog/index.js";
+  import { toMinor } from "#lib/expense-money.js";
 
   type ExpenseRow = Awaited<ReturnType<typeof client.expenses.list>>[number];
   type Member = Awaited<ReturnType<typeof client.members.list>>[number];

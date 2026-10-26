@@ -2,7 +2,7 @@ import { fail, redirect } from "@sveltejs/kit";
 import { db } from "@waymark/db";
 import { tripGuests, tripMembers, trips, user, userProfiles } from "@waymark/db/schema";
 import { and, eq, isNull } from "drizzle-orm";
-import { requireTripMember, requireTripOwner } from "$lib/server/trip-access";
+import { requireTripMember, requireTripOwner } from "#lib/server/trip-access.js";
 import type { Actions, PageServerLoad } from "./$types";
 
 export const load: PageServerLoad = async ({ request, params, cookies }) => {

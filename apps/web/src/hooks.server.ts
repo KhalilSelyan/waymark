@@ -1,6 +1,6 @@
+import type { Handle } from "@sveltejs/kit/hooks";
 import "./lib/orpc.server";
-import { building } from "$app/environment";
-import type { Handle } from "@sveltejs/kit";
+import { building } from "$app/env";
 import { auth } from "@waymark/auth";
 import { svelteKitHandler } from "better-auth/svelte-kit";
 
